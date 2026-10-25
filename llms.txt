@@ -1,0 +1,30 @@
+# SunBridge
+
+> SunBridge is a free, open-source (MIT) Home Assistant custom integration that reads a Growatt solar inverter locally through its ShineLan-X datalogger. The datalogger is pointed at Home Assistant once, and SunBridge becomes the server it uploads to: live power, PV voltage, inverter temperature, status, energy today and lifetime energy appear as Home Assistant sensors, ready for the Energy dashboard. No Growatt account, no cloud, no internet while running, no MQTT broker, no proxy container, no RS485 wiring. Installs through HACS as a custom repository, with a guided setup in Home Assistant's UI.
+
+Key facts:
+
+- Tested hardware: Growatt MIC 2500TL-X single-phase inverter with a ShineLan-X (Ethernet) datalogger on firmware 3.6.0.2. Other Growatt dataloggers with a Server IP setting on their web page (ShineWiFi models, for example) are likely to work but unverified. Other Growatt single-phase inverters are unverified. Batteries, meters and three-phase inverters are not read.
+- How it works: SunBridge listens on TCP port 5279 (by default) inside Home Assistant. It acknowledges the datalogger's announce, live and buffered records, echoes its pings, and sets the datalogger's clock. Each reply equals, byte for byte, what the original server sent in captured traffic.
+- Safety: it never writes to the inverter and never changes inverter or datalogger settings; the only messages it sends are the ping echo, the acknowledgement and the datalogger's clock, and a test pins that list.
+- Energy: the lifetime total never decreases, even across restarts. Buffered (catch-up) records are acknowledged and counted but never update a sensor, so energy is never counted twice.
+- Update rate: every datalogger upload, five minutes by default (set on the datalogger's own web page).
+- Trade-off: while the datalogger points at Home Assistant, the Growatt cloud and app receive no new data. Pointing it back at the cloud restores them.
+- Requirements: Home Assistant 2026.9 or newer, the datalogger and Home Assistant on the same local network.
+- Security: the datalogger protocol has no authentication; keep the port on the local network.
+- Independent project, not affiliated with or endorsed by Growatt.
+
+## Docs
+
+- [README](https://github.com/CaputoDavide93/SunBridge/blob/main/README.md): features, comparison with cloud integrations, RS485/Modbus wiring and MQTT proxy containers, supported hardware, install
+- [Setup](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/setup.md): installing with HACS, every setup screen, pointing the datalogger at Home Assistant, going back to the cloud
+- [FAQ](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/faq.md): internet, account, hardware, firmware updates, inverter safety, Energy dashboard
+- [Entities](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/entities.md): every sensor and its entity id
+- [Troubleshooting](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/troubleshooting.md): symptoms and fixes
+- [How it works](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/how-it-works.md): the connection, live and buffered records, energy totals, night
+
+## Optional
+
+- [Protocol notes](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/protocol-notes.md): the datalogger's wire format, from captured traffic
+- [Data layout](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/data-layout.md): where each value sits in a record, and the evidence
+- [Changelog](https://github.com/CaputoDavide93/SunBridge/blob/main/CHANGELOG.md)
