@@ -9,6 +9,8 @@ htmlcov/
 # Virtualenvs (a directory or a symlink)
 .venv
 venv/
+# The screenshot environment (make screenshots)
+.venv-screenshots/
 
 
 # OS / editor

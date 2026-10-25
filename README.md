@@ -34,16 +34,78 @@
 <!-- AUTOGEN:status -->
 **Status: new.** Version 0.1.0.
 <!-- /AUTOGEN:status -->
-Tested on one Growatt **MIC 2500TL-X** single-phase inverter with a
-**ShineLan-X** (Ethernet) datalogger on firmware **3.6.0.2**, and only
-against that pair's captured traffic. Other Growatt dataloggers and inverters
-may use other layouts. This is an independent project, not affiliated with
+### Supported hardware
+
+| Hardware | Status |
+|---|---|
+| Growatt **MIC 2500TL-X** single-phase inverter | ✅ Tested |
+| Growatt **ShineLan-X** (Ethernet) datalogger, firmware **3.6.0.2** | ✅ Tested |
+| Other Growatt dataloggers whose web page has a **Server IP** setting and that speak the same protocol (ShineWiFi models, for example) | ❔ Likely, unverified |
+| Other Growatt single-phase inverters behind such a datalogger | ❔ Unverified: the register layout may differ |
+| Batteries, meters, three-phase inverters | ❌ Not read (never tested) |
+
+Everything was learned from, and is tested against, the tested pair's
+captured traffic only. This is an independent project, not affiliated with
 or endorsed by Growatt.
 
 **What it does not do:** relay data to Growatt's cloud (while the datalogger
 points at Home Assistant, the Growatt app gets nothing new), update the
 datalogger's firmware, change anything on the datalogger except its clock,
 write to the inverter, or read batteries, meters or three-phase inverters (never tested).
+
+---
+
+## 📸 Screenshots
+
+Taken from a real Home Assistant with demo data (`make screenshots`); every
+setup screen is in [docs/setup.md](docs/setup.md).
+
+<table>
+<tr>
+<td width="50%">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/setup-point-dark.png">
+  <img src="docs/assets/screenshots/setup-point-light.png" width="100%" alt="The setup screen Point Your Datalogger Here: five numbered steps for the datalogger's web page, with Home Assistant's address 192.0.2.10 and the port filled in.">
+</picture>
+
+**Setup** shows exactly what to change on the datalogger
+
+</td>
+<td width="50%">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/setup-found-dark.png">
+  <img src="docs/assets/screenshots/setup-found-light.png" width="100%" alt="The setup screen Datalogger Found, showing the datalogger serial DLGEXAMPLE and the inverter serial INVEXAMPLE.">
+</picture>
+
+**Then waits** until the datalogger really connects
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/device-inverter-dark.png">
+  <img src="docs/assets/screenshots/device-inverter-light.png" width="100%" alt="The Solar Inverter device page in Home Assistant: energy today and total, grid and PV readings, power, status and temperature, with the last reading and working time under Diagnostic.">
+</picture>
+
+**Solar Inverter**, live from the datalogger (Advanced mode)
+
+</td>
+<td width="50%">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/power-history-dark.png">
+  <img src="docs/assets/screenshots/power-history-light.png" width="100%" alt="The Power sensor's more-info dialog: 87.5 W now, and a history graph of the afternoon falling from about 320 W.">
+</picture>
+
+**Power history**, ready for the Energy dashboard
+
+</td>
+</tr>
+</table>
 
 ---
 
@@ -59,7 +121,30 @@ minutes and a live record every upload interval (five minutes by default).
 SunBridge acknowledges the announce and data records, echoes the pings,
 leaves the datalogger's answers unanswered, and decodes the live records into
 sensors. It writes nothing else to the datalogger: no settings, no
-upload interval. [How it works](docs/how-it-works.md) has the details.
+upload interval.
+
+For each connection, in order:
+
+1. **Frames.** Bytes are reassembled into whole frames however the reads
+   split them, each frame's CRC is checked (a bad one is dropped and
+   counted), and the payload is descrambled.
+2. **Answers.** An announce (`0x03`) is acknowledged and followed by the
+   clock command; live (`0x04`) and buffered (`0x50`) records are
+   acknowledged; pings (`0x16`) are echoed. Every reply equals, byte for
+   byte, what the captured server sent.
+3. **Devices.** The first record that decodes completely creates the
+   **Solar Datalogger** device and the **Solar Inverter** under it. In
+   Advanced mode a serial not on the allow-list is closed before anything
+   is answered.
+4. **Sensors.** Only live records update sensors. Buffered records are
+   old values the datalogger stored while it was cut off: they are counted
+   in diagnostics and never shown, so the power never jumps back in time.
+5. **Energy.** The lifetime total never goes down, even across restarts,
+   so the Energy dashboard never counts anything twice.
+6. **Night.** With no live record for three upload intervals (at least 15
+   minutes), live sensors go unavailable; totals keep their value.
+
+[How it works](docs/how-it-works.md) has the details.
 
 ---
 
@@ -85,14 +170,14 @@ Step by step, with every screen and a checklist: [docs/setup.md](docs/setup.md).
 
 | Guide | What it covers |
 |---|---|
-| [Setup](docs/setup.md) | Before you start, installing, every setup screen, pointing the datalogger, going back to the cloud |
+| [Setup](docs/setup.md) | Before you start, installing, every setup screen with a screenshot, pointing the datalogger, going back to the cloud |
 | [Entities](docs/entities.md) | Every sensor, generated from the code |
 | [How it works](docs/how-it-works.md) | The connection, live versus buffered, the energy totals, night |
 | [Troubleshooting](docs/troubleshooting.md) | The datalogger's light, symptoms first, then debug logging |
 | [FAQ](docs/faq.md) | The Growatt app, firmware updates, buffered records, the Energy dashboard |
 | [Protocol notes](docs/protocol-notes.md) | The wire format, from captured traffic |
 | [Data layout](docs/data-layout.md) | Where each value sits in a record, and the evidence |
-| [Development](docs/development.md) | Checks, layout, tests, fixtures, adding a register |
+| [Development](docs/development.md) | Checks, screenshots, layout, tests, fixtures, adding a register |
 
 ---
 
@@ -104,6 +189,21 @@ Step by step, with every screen and a checklist: [docs/setup.md](docs/setup.md).
 | Setup mode | Simple | both | Simple: the core sensors. Advanced: the extra sensors and the two options below |
 | Allowed datalogger serials | any | Advanced | Close connections from any other datalogger before answering them |
 | Datalogger upload interval | 5 min (1 to 10) | Advanced | What the datalogger is set to on its own web page. Live sensors go unavailable after three intervals, never sooner than 15 minutes. SunBridge does not change the datalogger |
+
+### Simple or Advanced
+
+<!-- AUTOGEN:modes -->
+| | Simple | Advanced |
+|---|---|---|
+| Sensors | Power, PV voltage, Temperature, Status, Energy today, Energy total, Last reading, Connected | Everything in Simple, plus PV current, PV power, Grid voltage, Grid frequency, Grid current, Working time, and Second temperature (created disabled: unverified) |
+| Dataloggers answered | Any | Only the serials in the allow-list, prefilled with the one setup found (empty accepts any) |
+| Upload interval expected | 5 minutes, the datalogger's default | What you enter, 1 to 10 minutes, matching the datalogger |
+| Live sensors go unavailable after | 15 minutes without a live record | 3 upload intervals, never less than 15 minutes |
+| Setup screens | Welcome, port, datalogger steps, waiting, found (or not yet) | The same, then Advanced Settings |
+<!-- /AUTOGEN:modes -->
+
+Switch at any time from **Configure**; going back to Simple removes the
+Advanced sensors.
 
 ---
 
@@ -185,11 +285,12 @@ SunBridge/
 │   └── fixtures/captured/     # 📼 a real datalogger's traffic (serials replaced) and HA's history
 ├── tools/
 │   ├── gen_diagram.py         # 🗺️ draws docs/assets/*.svg
-│   └── gen_docs.py            # 🤖 the generated tables and values in the docs
+│   ├── gen_docs.py            # 🤖 the generated tables and values in the docs
+│   └── screenshots/           # 📸 make screenshots: a throwaway HA, a fake datalogger, Playwright
 ├── docs/                      # 📚 setup, FAQ, entities, how it works, protocol, data layout
-│   └── assets/                # 🖼️ the diagrams, light and dark, and the icon's SVG source
+│   └── assets/                # 🖼️ diagrams and screenshots, light and dark, and the icon's SVG source
 ├── .github/                   # 🤖 tests, Hassfest and HACS workflows, dependabot
-├── Makefile                   # 🔧 venv, check, test, lint, diagram, hassfest
+├── Makefile                   # 🔧 venv, check, test, lint, diagram, hassfest, screenshots
 ├── hacs.json  pyproject.toml  pytest.ini  requirements_test.txt
 └── CHANGELOG.md  LICENSE  SECURITY.md
 ```

@@ -9,8 +9,49 @@ make hassfest   # Home Assistant's own validation, in Docker
 ```
 
 `make diagram` redraws the diagrams in `docs/assets/` (the architecture and
-the setup flow) and the generated blocks in the README, [entities.md](entities.md)
-and [setup.md](setup.md); `make check` fails when any of them is stale.
+the setup flow) and the generated blocks in the README (the status, Simple
+or Advanced, and the entities), [entities.md](entities.md) and
+[setup.md](setup.md); `make check` fails when any of them is stale.
+
+## Screenshots
+
+```bash
+make screenshots   # retakes docs/assets/screenshots/, about three minutes
+```
+
+A developer tool, not part of `make check` or CI. On first use it builds
+`.venv-screenshots/` (gitignored) from `tools/screenshots/requirements.txt`:
+the Home Assistant release the tests pin, its frontend, and Playwright with
+Chromium. Then `tools/screenshots/take_screenshots.py`:
+
+1. starts Home Assistant in a new temporary config directory on a free
+   localhost port, with SunBridge and `tools/screenshots/screenshot_env/`
+   copied into `custom_components/`, and creates the owner through the
+   onboarding API;
+2. drives the guided setup in the real frontend, photographing each screen
+   in the light and the dark theme. SunBridge listens on 15279 there, so a
+   real listener on 5279 is never in the way. While the waiting screen
+   shows, a fake datalogger (`tools/screenshots/replay.py`) replays the
+   captured announce, so setup genuinely finds a datalogger;
+3. writes the captured live records' power into the power sensor's history
+   (their own values and spacing, the times moved to end as Home Assistant
+   started), sends the last live record over the socket, and photographs
+   both devices, the power sensor's history and the Energy dashboard's solar
+   setting.
+
+Only demo data reaches an image. Every captured frame is replayed with its
+serials replaced by `DLGEXAMPLE` and `INVEXAMPLE` (re-scrambled, CRC
+recomputed). `screenshot_env` replaces the network adapters Home Assistant
+reports with one at the documentation address 192.0.2.10, so that is the
+address setup detects, and the tool stops before the first picture of the
+port screen if it is not. Each PNG is re-saved without metadata and
+quantised to 256 colours.
+
+`--keep` leaves the temporary directory (and Home Assistant's log) behind;
+`--only setup-port,device-inverter` retakes only the named screens, though
+the whole setup still runs. If building `pymicro-vad` or `pyspeex-noise`
+fails on macOS, set `SDKROOT` to an SDK that links (one under
+`/Library/Developer/CommandLineTools/SDKs/`) for the first run.
 
 ## Layout
 

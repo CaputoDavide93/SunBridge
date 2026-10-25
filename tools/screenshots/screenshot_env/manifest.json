@@ -1,0 +1,10 @@
+{
+  "domain": "screenshot_env",
+  "name": "SunBridge screenshot environment",
+  "codeowners": [],
+  "dependencies": ["network", "recorder"],
+  "documentation": "https://github.com/CaputoDavide93/SunBridge",
+  "iot_class": "local_push",
+  "requirements": [],
+  "version": "0.0.0"
+}

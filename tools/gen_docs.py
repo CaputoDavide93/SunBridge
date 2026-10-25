@@ -22,7 +22,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 COMPONENT = ROOT / "custom_components" / "sunbridge"
 TARGETS = {
-    ROOT / "README.md": ("status", "entities"),
+    ROOT / "README.md": ("status", "modes", "entities"),
     ROOT / "docs" / "entities.md": ("entities",),
     ROOT / "docs" / "setup.md": ("setup-wait",),
 }
@@ -113,6 +113,55 @@ def entities() -> str:
     return "\n".join(out)
 
 
+def modes() -> str:
+    """Simple against Advanced: the sensors from sensor.py, the rest from
+    const.py, so neither column can drift from the code."""
+    names = json.loads((COMPONENT / "translations" / "en.json").read_text())["entity"]
+    simple, extra, disabled = [], [], []
+    for d in _descriptions():
+        name = names["sensor"][d["translation_key"]]["name"]
+        if not d.get("advanced"):
+            simple.append(name)
+        elif d.get("entity_registry_enabled_default") is False:
+            disabled.append(name)
+        else:
+            extra.append(name)
+    simple.append(names["binary_sensor"]["connected"]["name"])
+    default = _const("DEFAULT_UPLOAD_INTERVAL")
+    floor, intervals = _const("MIN_STALE_MINUTES"), _const("STALE_INTERVALS")
+    first, last = _const("MIN_UPLOAD_INTERVAL"), _const("MAX_UPLOAD_INTERVAL")
+    added = ", ".join(extra)
+    if disabled:
+        added += f", and {', '.join(disabled)} (created disabled: unverified)"
+    rows = [
+        ("Sensors", ", ".join(simple), f"Everything in Simple, plus {added}"),
+        (
+            "Dataloggers answered",
+            "Any",
+            "Only the serials in the allow-list, prefilled with the one setup "
+            "found (empty accepts any)",
+        ),
+        (
+            "Upload interval expected",
+            f"{default} minutes, the datalogger's default",
+            f"What you enter, {first} to {last} minutes, matching the datalogger",
+        ),
+        (
+            "Live sensors go unavailable after",
+            f"{max(floor, intervals * default)} minutes without a live record",
+            f"{intervals} upload intervals, never less than {floor} minutes",
+        ),
+        (
+            "Setup screens",
+            "Welcome, port, datalogger steps, waiting, found (or not yet)",
+            "The same, then Advanced Settings",
+        ),
+    ]
+    out = ["| | Simple | Advanced |", "|---|---|---|"]
+    out += [f"| {' | '.join(r)} |" for r in rows]
+    return "\n".join(out)
+
+
 def setup_wait() -> str:
     """How long setup's waiting step listens, from SETUP_WAIT_SECONDS."""
     return f"It listens for up to **{_const('SETUP_WAIT_SECONDS') // 60} minutes**."
@@ -126,7 +175,12 @@ def status() -> str:
     return f"**Status: new.** Version {version}."
 
 
-BLOCKS = {"entities": entities, "setup-wait": setup_wait, "status": status}
+BLOCKS = {
+    "entities": entities,
+    "modes": modes,
+    "setup-wait": setup_wait,
+    "status": status,
+}
 
 
 def render(text: str, names: tuple[str, ...], path: pathlib.Path) -> str:
