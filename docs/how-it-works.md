@@ -1,5 +1,30 @@
 # ⚙️ How it works
 
+## Step by step
+
+For each connection, in order:
+
+1. **Frames.** Bytes are reassembled into whole frames however the reads
+   split them, each frame's CRC is checked (a bad one is dropped and
+   counted), and the payload is descrambled.
+2. **Answers.** An announce (`0x03`) is acknowledged and followed by the
+   clock command; live (`0x04`) and buffered (`0x50`) records are
+   acknowledged; pings (`0x16`) are echoed. Every reply equals, byte for
+   byte, what the captured server sent.
+3. **Devices.** The first record that decodes completely creates the
+   **Solar Datalogger** device and the **Solar Inverter** under it. In
+   Advanced mode a serial not on the allow-list is closed before anything
+   is answered.
+4. **Sensors.** Only live records update sensors. Buffered records are
+   old values the datalogger stored while it was cut off: they are counted
+   in diagnostics and never shown, so the power never jumps back in time.
+5. **Energy.** The lifetime total never goes down, even across restarts,
+   so the Energy dashboard never counts anything twice.
+6. **Night.** With no live record for three upload intervals (at least 15
+   minutes), live sensors go unavailable; totals keep their value.
+
+The sections below explain each step.
+
 ## The connection
 
 The datalogger opens a TCP connection to the configured server and keeps it

@@ -4,7 +4,7 @@
 
 # ☀️ SunBridge
 
-**Home Assistant becomes the server your Growatt ShineLan-X datalogger uploads to: local solar data, no cloud, no MQTT, no container**
+**Local Growatt solar data in Home Assistant, straight from your ShineLan-X datalogger: no cloud, no wiring, no extra container**
 
 ![Python](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)
 ![Home Assistant](https://img.shields.io/badge/Home_Assistant-2026.9-41BDF5?logo=homeassistant&logoColor=white)
@@ -18,13 +18,59 @@
 
 ## ✨ Features
 
+SunBridge is a free, open-source Home Assistant integration for Growatt solar
+inverters with a **ShineLan-X** datalogger. You point the datalogger at Home
+Assistant once, and SunBridge becomes the server it uploads to. Live power,
+daily energy and lifetime energy land in the Energy dashboard, and your solar
+data never leaves your network.
+
+### Why SunBridge
+
+Growatt's cloud needs an account (in some countries a new account asks for
+an installer code), sends every reading off your network, and goes quiet
+when your internet or the cloud does. The local options mean running RS485
+wiring to the inverter, or adding an MQTT proxy container and a broker.
+
+SunBridge needs none of that. The datalogger already uploads over your
+network; SunBridge receives it inside Home Assistant.
+
+| | SunBridge | Cloud integrations | RS485/Modbus wiring | MQTT proxy containers |
+|---|---|---|---|---|
+| Growatt account | Not needed | Needed | Not needed | Not needed |
+| Internet while running | Not needed | Needed | Not needed | Not needed |
+| Extra hardware | None | None | An RS485 adapter and a cable to the inverter | None |
+| Extra software | None: installs through HACS | None | A Modbus reader | A proxy container and an MQTT broker |
+| How fresh the data is | Every upload, 5 minutes by default | After the cloud has it and the integration polls it | As often as you poll | Every upload |
+| Setup | Guided, in Home Assistant's UI | In Home Assistant's UI | Wiring, then configuration | Container, broker and topic configuration |
+
+The one trade-off: the datalogger uploads to one server, so
+while it points at Home Assistant the Growatt app gets no new data. You can
+[point it back](docs/setup.md#going-back-to-growatts-cloud) at any time.
+
+### Install in 3 steps
+
+1. **Install with HACS:** add `https://github.com/CaputoDavide93/SunBridge`
+   as a custom repository of type **Integration**, download **SunBridge**,
+   restart Home Assistant.
+2. **Add the integration:** **Settings → Devices & services → Add integration
+   → SunBridge**.
+3. **Follow the guided setup.** It shows the exact settings for the
+   datalogger's web page, waits until the datalogger connects, and creates
+   the devices.
+
+Details and every screen are in [Quick Start](#-quick-start) and
+[docs/setup.md](docs/setup.md).
+
+### What you get
+
 | | Feature | What it does |
 |---|---|---|
 | 📡 | A server inside Home Assistant | Listens on TCP (port 5279 by default) for the datalogger's uploads, acknowledges `0x03`, `0x04` and `0x50` records as the datalogger expects, and echoes its `0x16` pings |
-| 🕰️ | Clock kept right | Sets the datalogger's clock to UTC after every announce, byte for byte as the server it replaces did |
-| ⚡ | Live sensors | Power, PV voltage, inverter temperature and status from every live record, each matched against Home Assistant's own history of the same inverter |
+| 🏠 | Nothing leaves the house | No cloud, no account, no MQTT broker. SunBridge only answers the datalogger, on your own network |
+| ⚡ | Live sensors | Power, PV voltage, inverter temperature and status from every live record, each checked against Home Assistant's own history of the same inverter |
 | 🔋 | Energy dashboard ready | Energy today and a lifetime total that never goes down, even across restarts, so nothing is counted twice |
-| 🗃️ | Old data stays old | Buffered records (stored while the server was unreachable) are acknowledged and counted, never shown as current |
+| 🛡️ | Hands off the inverter | SunBridge writes no inverter settings. It sends three things only: the ping echo, the acknowledgement and the datalogger's clock, and a test pins that list |
+| 🗃️ | Old data stays old | Buffered records (stored while the server was unreachable) are acknowledged and counted, never shown as current or added to energy |
 | 🌙 | Night aware | Live sensors go unavailable when the inverter stops reporting; totals and the last reading time keep their value |
 | 🔌 | Robust link | Records split or joined across reads, bad CRCs dropped and counted, several connections at once, reconnects, idle sockets closed |
 | 🧭 | Guided setup | Detects Home Assistant's address, shows the exact datalogger settings, waits for the datalogger and shows its serials |
@@ -41,12 +87,14 @@
 | Growatt **MIC 2500TL-X** single-phase inverter | ✅ Tested |
 | Growatt **ShineLan-X** (Ethernet) datalogger, firmware **3.6.0.2** | ✅ Tested |
 | Other Growatt dataloggers whose web page has a **Server IP** setting and that speak the same protocol (ShineWiFi models, for example) | ❔ Likely, unverified |
-| Other Growatt single-phase inverters behind such a datalogger | ❔ Unverified: the register layout may differ |
+| Other Growatt single-phase inverters behind such a datalogger (other MIC TL-X sizes, for example) | ❔ Unverified: the register layout may differ |
 | Batteries, meters, three-phase inverters | ❌ Not read (never tested) |
 
 Everything was learned from, and is tested against, the tested pair's
-captured traffic only. This is an independent project, not affiliated with
-or endorsed by Growatt.
+captured traffic only. Running other hardware?
+[Open an issue](https://github.com/CaputoDavide93/SunBridge/issues) with
+your inverter and datalogger models and firmware, and help verify it. This
+is an independent project, not affiliated with or endorsed by Growatt.
 
 **What it does not do:** relay data to Growatt's cloud (while the datalogger
 points at Home Assistant, the Growatt app gets nothing new), update the
@@ -121,34 +169,24 @@ minutes and a live record every upload interval (five minutes by default).
 SunBridge acknowledges the announce and data records, echoes the pings,
 leaves the datalogger's answers unanswered, and decodes the live records into
 sensors. It writes nothing else to the datalogger: no settings, no
-upload interval.
+upload interval. Every reply equals, byte for byte, what the original server
+sent in the captured traffic.
 
-For each connection, in order:
+Only live records update sensors. Buffered records are old values the
+datalogger stored while it was cut off: SunBridge counts them in diagnostics
+and never shows them, so the power never jumps back in time and the lifetime
+total never counts anything twice.
 
-1. **Frames.** Bytes are reassembled into whole frames however the reads
-   split them, each frame's CRC is checked (a bad one is dropped and
-   counted), and the payload is descrambled.
-2. **Answers.** An announce (`0x03`) is acknowledged and followed by the
-   clock command; live (`0x04`) and buffered (`0x50`) records are
-   acknowledged; pings (`0x16`) are echoed. Every reply equals, byte for
-   byte, what the captured server sent.
-3. **Devices.** The first record that decodes completely creates the
-   **Solar Datalogger** device and the **Solar Inverter** under it. In
-   Advanced mode a serial not on the allow-list is closed before anything
-   is answered.
-4. **Sensors.** Only live records update sensors. Buffered records are
-   old values the datalogger stored while it was cut off: they are counted
-   in diagnostics and never shown, so the power never jumps back in time.
-5. **Energy.** The lifetime total never goes down, even across restarts,
-   so the Energy dashboard never counts anything twice.
-6. **Night.** With no live record for three upload intervals (at least 15
-   minutes), live sensors go unavailable; totals keep their value.
-
-[How it works](docs/how-it-works.md) has the details.
+[How it works](docs/how-it-works.md) follows a connection step by step.
 
 ---
 
 ## 🚀 Quick Start
+
+**You need:** a Growatt inverter with a ShineLan-X datalogger, on the same
+local network as Home Assistant 2026.9 or newer, the datalogger's IP address
+and the login printed on its label, and daylight (the datalogger sleeps with
+the inverter). The full checklist is in [docs/setup.md](docs/setup.md#-before-you-start).
 
 1. **Install.**
    In HACS: **⋮ → Custom repositories**, add
@@ -163,6 +201,8 @@ For each connection, in order:
    production, after removing any other source for the same inverter.
 
 Step by step, with every screen and a checklist: [docs/setup.md](docs/setup.md).
+Questions about the Growatt app, internet outages or firmware updates:
+[docs/faq.md](docs/faq.md).
 
 ---
 
@@ -172,9 +212,9 @@ Step by step, with every screen and a checklist: [docs/setup.md](docs/setup.md).
 |---|---|
 | [Setup](docs/setup.md) | Before you start, installing, every setup screen with a screenshot, pointing the datalogger, going back to the cloud |
 | [Entities](docs/entities.md) | Every sensor, generated from the code |
-| [How it works](docs/how-it-works.md) | The connection, live versus buffered, the energy totals, night |
+| [How it works](docs/how-it-works.md) | The connection step by step, live versus buffered, the energy totals, night |
 | [Troubleshooting](docs/troubleshooting.md) | The datalogger's light, symptoms first, then debug logging |
-| [FAQ](docs/faq.md) | The Growatt app, firmware updates, buffered records, the Energy dashboard |
+| [FAQ](docs/faq.md) | Internet and account, the Growatt app, other inverters and dataloggers, firmware, safety, the Energy dashboard |
 | [Protocol notes](docs/protocol-notes.md) | The wire format, from captured traffic |
 | [Data layout](docs/data-layout.md) | Where each value sits in a record, and the evidence |
 | [Development](docs/development.md) | Checks, screenshots, layout, tests, fixtures, adding a register |
@@ -288,7 +328,7 @@ SunBridge/
 │   ├── gen_docs.py            # 🤖 the generated tables and values in the docs
 │   └── screenshots/           # 📸 make screenshots: a throwaway HA, a fake datalogger, Playwright
 ├── docs/                      # 📚 setup, FAQ, entities, how it works, protocol, data layout
-│   └── assets/                # 🖼️ diagrams and screenshots, light and dark, and the icon's SVG source
+│   └── assets/                # 🖼️ diagrams, screenshots, the icon's SVG source, the social preview
 ├── .github/                   # 🤖 tests, Hassfest and HACS workflows, dependabot
 ├── Makefile                   # 🔧 venv, check, test, lint, diagram, hassfest, screenshots
 ├── hacs.json  pyproject.toml  pytest.ini  requirements_test.txt
@@ -312,6 +352,10 @@ Assistant's history of the same moment. End-to-end tests run a fake
 datalogger over a real localhost socket, through the whole setup and the
 listener.
 
+Tests also pin the promises above: SunBridge sends only the ping echo,
+the acknowledgement and the datalogger's clock; buffered records never touch
+a sensor or the energy totals; and the lifetime total never goes down.
+
 ---
 
 ## 📦 Deployment
@@ -326,6 +370,20 @@ update.
 
 The datalogger's protocol has no authentication: keep the port on the LAN.
 Diagnostics carry no serials. See [SECURITY.md](SECURITY.md).
+
+---
+
+## 🤝 Contributing
+
+The most useful contribution is a report from other hardware. If you run
+SunBridge with an inverter or datalogger not marked tested above,
+[open an issue](https://github.com/CaputoDavide93/SunBridge/issues) with
+the inverter model, the datalogger model and firmware, and whether the
+readings match the inverter's own display. Attach the integration's
+diagnostics if you can: they carry no serials.
+
+Code changes: run `make check` first; [docs/development.md](docs/development.md)
+explains the layout, the fixtures and how to add a register.
 
 ---
 

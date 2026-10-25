@@ -53,6 +53,15 @@ the whole setup still runs. If building `pymicro-vad` or `pyspeex-noise`
 fails on macOS, set `SDKROOT` to an SDK that links (one under
 `/Library/Developer/CommandLineTools/SDKs/`) for the first run.
 
+### Social preview
+
+`docs/assets/social-preview.png` (1280 × 640, no metadata) is the image
+GitHub shows when the repository is linked: the icon from
+`docs/assets/brand/icon.svg` on ink `#14233F`, the name with the amber
+`#FFC94D` → `#FF7A2F` gradient, and the tagline in paper `#F6F1E7`. GitHub
+does not read it from the tree: upload it under **Settings → General →
+Social preview**.
+
 ## Layout
 
 | File | Role |
