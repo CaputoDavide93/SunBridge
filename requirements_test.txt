@@ -3,4 +3,4 @@
 # brings pytest, pytest-asyncio and syrupy at the versions that HA expects.
 pytest-homeassistant-custom-component==0.13.367
 # Pinned like the rest, so a new ruff release cannot turn a green branch red.
-ruff==0.16.10
+ruff==0.17.1
