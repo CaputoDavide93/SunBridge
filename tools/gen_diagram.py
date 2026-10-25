@@ -227,8 +227,8 @@ SCHEMES["dark"].update(accent="#FFC94D", on_accent="#14233F")
 def architecture(scheme):
     k = Canvas(1180, 444, scheme,
                "The inverter's data reaches the ShineLan-X datalogger, which uploads "
-               "records over TCP port 5279 to sunbridge inside Home Assistant; "
-               "sunbridge acknowledges its announce and data records, echoes its "
+               "records over TCP port 5279 to SunBridge inside Home Assistant; "
+               "SunBridge acknowledges its announce and data records, echoes its "
                "pings, sets the datalogger's clock, and turns "
                "live records into sensors for the Energy dashboard.")
     W, H = 180, 112
@@ -240,7 +240,7 @@ def architecture(scheme):
               "grid-tie, one string"], icon="bolt"),
         k.box(xs[1], top, W, H, "Datalogger", ["ShineLan-X, Ethernet,",
               "uploads every 5 min"], icon="wifi"),
-        k.box(xs[2], top, W, H, "sunbridge", ["TCP server inside",
+        k.box(xs[2], top, W, H, "SunBridge", ["TCP server inside",
               "Home Assistant"], icon="server", tone="accent"),
         k.box(xs[3], top, W, H, "Sensors", ["power, energy, PV,",
               "temperature, status"], icon="chart"),

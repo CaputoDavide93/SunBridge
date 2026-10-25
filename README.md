@@ -51,7 +51,7 @@ write to the inverter, or read batteries, meters or three-phase inverters (never
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-dark.svg">
-  <img src="docs/assets/architecture-light.svg" width="100%" alt="The inverter's data reaches the ShineLan-X datalogger, which uploads records over TCP port 5279 to sunbridge inside Home Assistant; sunbridge acknowledges its announce and data records, echoes its pings, sets the datalogger's clock, and turns live records into sensors for the Energy dashboard.">
+  <img src="docs/assets/architecture-light.svg" width="100%" alt="The inverter's data reaches the ShineLan-X datalogger, which uploads records over TCP port 5279 to SunBridge inside Home Assistant; SunBridge acknowledges its announce and data records, echoes its pings, sets the datalogger's clock, and turns live records into sensors for the Energy dashboard.">
 </picture>
 
 The datalogger keeps one TCP connection open and sends a ping about every two
