@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtualenvs (a directory or a symlink)
+.venv
+venv/
+
+
+# OS / editor
+.DS_Store
+.vscode/
+*.code-workspace

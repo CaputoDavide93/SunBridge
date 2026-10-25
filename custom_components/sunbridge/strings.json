@@ -1,0 +1,176 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Welcome to SunBridge",
+        "description": "SunBridge turns this Home Assistant into the server your Growatt datalogger (ShineLan-X or similar) uploads to, so your solar readings stay on your own network. No cloud account, no extra software.\n\nThe next screens ask for a port, show you exactly what to change on the datalogger's web page, then wait for the datalogger to connect and show you what it found.\n\n**Simple** creates the core sensors with sensible defaults. **Advanced** adds more sensors, a datalogger allow-list and the upload interval.",
+        "data": {
+          "mode": "Setup mode"
+        },
+        "data_description": {
+          "mode": "You can change this later from Configure."
+        }
+      },
+      "port": {
+        "title": "Choose the Port",
+        "description": "The datalogger will connect to this Home Assistant at the address and port below. Home Assistant detected its own address on your network as **{address}**. Check it, and correct it if Home Assistant has more than one network connection.",
+        "data": {
+          "port": "Port",
+          "address": "Home Assistant's address"
+        },
+        "data_description": {
+          "port": "The TCP port to listen on. 5279 is the port Growatt dataloggers use, so keep it unless something else needs it.",
+          "address": "The IPv4 address the datalogger will send to, for example 192.0.2.10. It is only used for the instructions on the next screen."
+        }
+      },
+      "point": {
+        "title": "Point Your Datalogger Here",
+        "description": "Do this in daylight: the datalogger is powered by the inverter, so it is off when there is no sun.\n\n1. Find the datalogger's own IP address in your router's list of connected devices, and open that address in a browser.\n2. Log in with the user name and password printed on the datalogger's label (often `admin` / `admin`).\n3. Open **Network Setting** and note down the values there, so you can go back to Growatt's cloud later.\n4. Set **ResolvDomain** to **OFF**, **Server IP** to `{address}` and **Server port** to `{port}`. Click **Save**.\n5. Open **Datalogger Setting**. Set **Reboot** to **yes** and click **Save**.\n\nThe datalogger restarts and connects here within a few minutes. Press **Next** once you have saved, and SunBridge starts listening.",
+        "data": {}
+      },
+      "found": {
+        "title": "Datalogger Found",
+        "description": "Your datalogger connected and sent a record SunBridge could read.\n\nDatalogger serial: **{datalogger}**\nInverter serial: **{inverter}**\n\nContinue to finish. Live readings appear with the next upload (every five minutes by default).",
+        "data": {}
+      },
+      "not_found": {
+        "title": "No Datalogger Yet",
+        "description": "Nothing arrived on port {port} in {minutes} minutes.\n\nCheck that the datalogger's Server IP is `{address}`, its Server port is `{port}`, ResolvDomain is OFF, and that it was rebooted. At night the datalogger is off: that is normal, and it connects once the sun is up.",
+        "menu_options": {
+          "finish": "Finish now: the datalogger appears when it connects",
+          "retry": "Try again: listen once more"
+        }
+      },
+      "advanced": {
+        "title": "Advanced Settings",
+        "description": "The datalogger found during setup is already in the allow-list, so SunBridge will answer only that datalogger. Leave the list empty to accept any datalogger.\n\nThe upload interval is set on the datalogger's own web page (its Data Transfer Interval). Enter the same value here. SunBridge does not change the datalogger: it uses this to decide when live readings are out of date.",
+        "data": {
+          "allowed_serials": "Allowed datalogger serials",
+          "upload_interval": "Datalogger upload interval"
+        },
+        "data_description": {
+          "allowed_serials": "Accept only these dataloggers, by serial, separated by commas. Leave empty to accept any datalogger.",
+          "upload_interval": "Minutes between the datalogger's uploads, as set on its web page (default 5)."
+        }
+      }
+    },
+    "error": {
+      "port_unavailable": "Something else is already listening on this port. Pick another one, and set the same port on the datalogger.",
+      "invalid_address": "Enter an IPv4 address, such as 192.0.2.10.",
+      "invalid_serial": "A serial may only contain letters and digits."
+    },
+    "abort": {
+      "already_configured": "SunBridge is already listening on port {port}. Two listeners cannot share a port: to change that entry, use Configure on it, or choose another port for a second datalogger."
+    },
+    "progress": {
+      "wait_for_datalogger": "Waiting for your datalogger on `{address}` port `{port}`. This page moves on by itself as soon as the datalogger sends its first record. It listens for up to {minutes} minutes; after a reboot the datalogger usually connects within two or three."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "SunBridge Settings",
+        "description": "Saving reloads the listener: open connections are closed and the datalogger reconnects.",
+        "data": {
+          "port": "Port",
+          "mode": "Setup mode"
+        },
+        "data_description": {
+          "port": "The TCP port to listen on.",
+          "mode": "Simple creates the core sensors. Advanced adds the extra sensors, an allow-list and the upload interval."
+        }
+      },
+      "advanced": {
+        "title": "Advanced Settings",
+        "description": "The upload interval is set on the datalogger's own web page (its Data Transfer Interval). Enter the same value here. SunBridge does not change the datalogger: it uses this to decide when live readings are out of date.",
+        "data": {
+          "allowed_serials": "Allowed datalogger serials",
+          "upload_interval": "Datalogger upload interval"
+        },
+        "data_description": {
+          "allowed_serials": "Accept only these dataloggers, by serial, separated by commas. Leave empty to accept any datalogger.",
+          "upload_interval": "Minutes between the datalogger's uploads, as set on its web page (default 5)."
+        }
+      }
+    },
+    "error": {
+      "port_unavailable": "Something else is already listening on this port. Pick another one, and set the same port on the datalogger.",
+      "port_in_use_by_entry": "Another SunBridge entry already listens on this port.",
+      "invalid_serial": "A serial may only contain letters and digits."
+    }
+  },
+  "selector": {
+    "mode": {
+      "options": {
+        "simple": "Simple",
+        "advanced": "Advanced"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connected": {
+        "name": "Connected"
+      }
+    },
+    "sensor": {
+      "power": {
+        "name": "Power"
+      },
+      "energy_today": {
+        "name": "Energy today"
+      },
+      "energy_total": {
+        "name": "Energy total"
+      },
+      "pv_voltage": {
+        "name": "PV voltage"
+      },
+      "temperature": {
+        "name": "Temperature"
+      },
+      "status": {
+        "name": "Status",
+        "state": {
+          "waiting": "Waiting",
+          "producing": "Producing",
+          "fault": "Fault"
+        },
+        "state_attributes": {
+          "code": {
+            "name": "Status code"
+          }
+        }
+      },
+      "last_reading": {
+        "name": "Last reading"
+      },
+      "pv_current": {
+        "name": "PV current"
+      },
+      "pv_power": {
+        "name": "PV power"
+      },
+      "grid_voltage": {
+        "name": "Grid voltage"
+      },
+      "grid_frequency": {
+        "name": "Grid frequency"
+      },
+      "grid_current": {
+        "name": "Grid current"
+      },
+      "temperature_2": {
+        "name": "Second temperature"
+      },
+      "working_time": {
+        "name": "Working time"
+      }
+    }
+  },
+  "exceptions": {
+    "port_unavailable": {
+      "message": "Cannot listen on port {port}: {error}"
+    }
+  }
+}

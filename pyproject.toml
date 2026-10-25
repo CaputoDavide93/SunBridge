@@ -1,0 +1,25 @@
+[tool.ruff]
+# Home Assistant 2026.3 and later run on Python 3.14.
+target-version = "py314"
+line-length = 88
+
+[tool.ruff.lint]
+# A small, high-signal set: correctness (E/F/W), import order (I), modern
+# syntax (UP), bug patterns (B, RUF), and blind excepts (BLE), which matter in
+# a listener where a swallowed error becomes a silently wrong reading.
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RET", "C4", "RUF", "BLE"]
+ignore = [
+    # Prose in comments and docstrings uses typographic dashes on purpose.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components"]
+
+[tool.ruff.lint.per-file-ignores]
+# Captured-byte fixtures and parametrise tables read better unwrapped.
+"tests/*" = ["E501"]
+# The diagram engine is the house kit, copied verbatim across repos.
+"tools/gen_diagram.py" = ["E501", "E702", "C4", "SIM", "RUF", "UP", "I"]

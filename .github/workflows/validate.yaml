@@ -1,0 +1,26 @@
+name: HACS Validation
+
+# HACS's own checks: repository structure, hacs.json, manifest, brand icon,
+# description, topics.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"   # weekly: HACS's rules change under us
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate with HACS Action
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: HACS validation
+        uses: hacs/action@1ebf01c408f29afcb6406bd431bc98fd8cbb15aa
+        with:
+          category: integration
