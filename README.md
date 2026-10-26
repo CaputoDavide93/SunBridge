@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/brand/icon.svg" width="96" alt="SunBridge icon: a sun beside a house, joined by an arc of dots">
+<img src="docs/assets/brand/icon.svg" width="96" alt="SunBridge icon: a sun above a house roofline">
 
 # ☀️ SunBridge
 
@@ -15,6 +15,7 @@
 </div>
 
 ---
+
 
 ## ✨ Features
 
