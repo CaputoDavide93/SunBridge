@@ -349,6 +349,7 @@ async def run(args: argparse.Namespace) -> None:
             camera = Camera(page, only)
             await shoot_setup(page, camera, base, datalogger)
             await shoot_devices(page, camera, base, datalogger, started)
+            await shoot_reconfigure(page, camera, base)
             await browser.close()
         print(f"{len(camera.taken)} screenshots in {OUT.relative_to(ROOT)}")
     finally:
@@ -504,6 +505,21 @@ async def shoot_devices(
     )
     await page.wait_for_timeout(1500)
     await camera.shoot("energy-solar", dialog(page, "dialog-energy-solar-settings"))
+
+
+async def shoot_reconfigure(page: Page, camera: Camera, base: str) -> None:
+    """The entry's Reconfigure form, opened from its menu and left unsaved."""
+    if camera.only and "setup-reconfigure" not in camera.only:
+        return
+    await page.goto(f"{base}/config/integrations/integration/sunbridge")
+    row = page.locator("ha-config-entry-row").first
+    await row.wait_for(timeout=60000)
+    await page.wait_for_timeout(1500)
+    await row.get_by_role("button", name="Menu", exact=True).first.click()
+    await page.get_by_text("Reconfigure", exact=True).first.click()
+    await screen(page, "Change the Port")
+    await camera.shoot("setup-reconfigure", dialog(page))
+    await page.keyboard.press("Escape")
 
 
 def main() -> None:

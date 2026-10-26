@@ -41,6 +41,24 @@ MAX_CONNECTIONS: Final = 4
 MAX_DATALOGGERS: Final = 2
 MAX_INVERTERS: Final = 2
 
+# The lifetime energy filter. A reading the inverter could not have made (lower
+# than the last, or higher than this power for the time elapsed, plus a little
+# slack for rounding) is held back; this many consecutive live records that
+# agree with each other make it real (a counter reset, a replaced inverter).
+LIFETIME_CONFIRM_RECORDS: Final = 3
+MAX_PLAUSIBLE_POWER_KW: Final = 50.0
+LIFETIME_SLACK_KWH: Final = 1.0
+
+# A datalogger with no open connection for this long is offline: its live
+# sensors go unavailable and the change is logged once. Shorter gaps are the
+# datalogger reconnecting, which it does often.
+RECONNECT_GRACE_SECONDS: Final = 120
+
+# A known datalogger silent for this many hours of daylight raises a repair
+# issue. Where the sun does not rise or set that day, 24 hours of silence do.
+SILENT_DAYLIGHT_HOURS: Final = 3
+SILENT_FALLBACK_HOURS: Final = 24
+
 # How long the setup's "Waiting for your datalogger" step listens before it
 # offers to finish anyway or try again.
 SETUP_WAIT_SECONDS: Final = 600

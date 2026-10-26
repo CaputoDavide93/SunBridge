@@ -23,3 +23,25 @@ known-first-party = ["custom_components"]
 "tests/*" = ["E501"]
 # The diagram engine is the house kit, copied verbatim across repos.
 "tools/gen_diagram.py" = ["E501", "E702", "C4", "SIM", "RUF", "UP", "I"]
+
+[tool.coverage.run]
+# `make test` and CI run the suite with branch coverage of the integration.
+source = ["custom_components/sunbridge"]
+branch = true
+
+[tool.coverage.report]
+# The gate. The suite measured 96% when it was set; raise it, never lower it.
+fail_under = 95
+show_missing = true
+skip_covered = true
+
+[tool.mypy]
+# `make typing`: strict, run against the pinned Home Assistant in .venv.
+python_version = "3.14"
+files = ["custom_components/sunbridge"]
+strict = true
+warn_unreachable = true
+# Home Assistant ships its type information; the tests are not checked.
+follow_imports = "silent"
+# custom_components/ has no __init__.py: name modules from the repository root.
+explicit_package_bases = true

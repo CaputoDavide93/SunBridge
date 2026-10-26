@@ -8,7 +8,9 @@ sending captured records.
 from __future__ import annotations
 
 import asyncio
+import json
 import socket
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -17,12 +19,17 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.sunbridge.config_flow import CONF_ADDRESS, _port_free
+from custom_components.sunbridge.config_flow import (
+    CONF_ADDRESS,
+    _check_advanced,
+    _port_free,
+)
 from custom_components.sunbridge.const import (
     CONF_ALLOWED_SERIALS,
     CONF_MODE,
     CONF_PORT,
     CONF_UPLOAD_INTERVAL,
+    DEFAULT_UPLOAD_INTERVAL,
     DOMAIN,
     MODE_ADVANCED,
     MODE_SIMPLE,
@@ -35,6 +42,9 @@ from .conftest import FakeDatalogger, make_entry
 PORT_FREE = "custom_components.sunbridge.config_flow._port_free"
 SOURCE_IP = "custom_components.sunbridge.config_flow.async_get_source_ip"
 WAIT = "custom_components.sunbridge.config_flow.SETUP_WAIT_SECONDS"
+COMPONENT = Path(__file__).parent.parent / "custom_components" / "sunbridge"
+STRINGS = COMPONENT / "strings.json"
+EN = COMPONENT / "translations" / "en.json"
 ADDRESS = "192.0.2.10"  # a documentation address (RFC 5737)
 
 ANNOUNCE = of_type(TYPE_ANNOUNCE)[0].raw
@@ -164,8 +174,17 @@ async def test_simple_setup_waits_for_the_datalogger(
     assert _port_free(port)
     result = await hass.config_entries.flow.async_configure(flow_id, {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"] == {CONF_PORT: port, CONF_MODE: MODE_SIMPLE}
+    # The port is the listener's identity; the rest are preferences.
+    assert result["data"] == {CONF_PORT: port}
+    # Simple answers only the datalogger it found.
+    assert result["options"] == {
+        CONF_MODE: MODE_SIMPLE,
+        CONF_ALLOWED_SERIALS: DATALOGGER,
+        CONF_UPLOAD_INTERVAL: DEFAULT_UPLOAD_INTERVAL,
+    }
     assert result["title"] == f"SunBridge (port {port})"
+    assert result["version"] == 1
+    assert result["minor_version"] == 2
 
 
 async def test_advanced_setup_prefills_the_found_datalogger(
@@ -188,8 +207,8 @@ async def test_advanced_setup_prefills_the_found_datalogger(
         {CONF_ALLOWED_SERIALS: f"{DATALOGGER.lower()}, ABC123", CONF_UPLOAD_INTERVAL: 2},
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"] == {
-        CONF_PORT: port,
+    assert result["data"] == {CONF_PORT: port}
+    assert result["options"] == {
         CONF_MODE: MODE_ADVANCED,
         CONF_ALLOWED_SERIALS: f"ABC123, {DATALOGGER}",
         CONF_UPLOAD_INTERVAL: 2,
@@ -220,7 +239,26 @@ async def test_nothing_arrives_then_try_again_then_finish(
         flow_id, {"next_step_id": "finish"}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"] == {CONF_PORT: port, CONF_MODE: MODE_SIMPLE}
+    assert result["data"] == {CONF_PORT: port}
+    # No datalogger was seen, so there is nothing to allow-list yet.
+    assert result["options"][CONF_ALLOWED_SERIALS] == ""
+
+
+async def test_finishing_without_a_datalogger_still_checks_the_port(
+    hass: HomeAssistant, socket_enabled
+) -> None:
+    """Finish now must not create an entry on a port that cannot be bound."""
+    port = free_port()
+    with patch(WAIT, 0.05):
+        result = await _to_wait(hass, port)
+        result = await _progress_done(hass, result["flow_id"])
+    with patch(PORT_FREE, return_value=False):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"next_step_id": "finish"}
+        )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "port"
+    assert result["errors"] == {CONF_PORT: "port_unavailable"}
 
 
 async def test_finishing_advanced_without_a_datalogger_leaves_the_list_empty(
@@ -289,8 +327,18 @@ async def test_a_port_another_entry_listens_on_is_explained(
     assert result["description_placeholders"] == {"port": "5279"}
 
 
-async def test_an_invalid_serial_is_refused(
-    hass: HomeAssistant, socket_enabled
+@pytest.mark.parametrize(
+    ("serials", "error"),
+    [
+        ("ABCD-1234", "invalid_serial"),
+        ("ÄBC123", "invalid_serial"),
+        ("A" * 31, "serial_too_long"),
+        ("ABC123, abc123", "duplicate_serial"),
+        (", ".join(f"S{n}" for n in range(11)), "too_many_serials"),
+    ],
+)
+async def test_an_invalid_allow_list_is_refused(
+    hass: HomeAssistant, socket_enabled, serials: str, error: str
 ) -> None:
     port = free_port()
     with patch(WAIT, 0.05):
@@ -300,9 +348,26 @@ async def test_an_invalid_serial_is_refused(
         result["flow_id"], {"next_step_id": "finish"}
     )
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_ALLOWED_SERIALS: "ABCD-1234", CONF_UPLOAD_INTERVAL: 5}
+        result["flow_id"], {CONF_ALLOWED_SERIALS: serials, CONF_UPLOAD_INTERVAL: 5}
     )
-    assert result["errors"] == {CONF_ALLOWED_SERIALS: "invalid_serial"}
+    assert result["errors"] == {CONF_ALLOWED_SERIALS: error}
+
+
+@pytest.mark.parametrize(
+    ("serials", "stored"),
+    [
+        ("", ""),
+        ("A" * 30, "A" * 30),
+        ("b2, a1 ,,", "A1, B2"),
+        (", ".join(f"S{n}" for n in range(10)), ", ".join(sorted(f"S{n}" for n in range(10)))),
+    ],
+)
+def test_a_valid_allow_list_is_normalised(serials: str, stored: str) -> None:
+    settings, errors = _check_advanced(
+        {CONF_ALLOWED_SERIALS: serials, CONF_UPLOAD_INTERVAL: 5}
+    )
+    assert errors == {}
+    assert settings[CONF_ALLOWED_SERIALS] == stored
 
 
 async def test_the_bind_check_is_real(hass: HomeAssistant, socket_enabled) -> None:
@@ -318,42 +383,88 @@ async def test_options_simple_to_advanced(hass: HomeAssistant) -> None:
     entry.add_to_hass(hass)
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["step_id"] == "init"
-    # The entry's own port is not re-tested: its listener holds it.
-    with patch(PORT_FREE, return_value=False):
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"], {CONF_PORT: 5279, CONF_MODE: MODE_ADVANCED}
-        )
+    # The port is changed by Reconfigure, never here.
+    assert CONF_PORT not in result["data_schema"].schema
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_MODE: MODE_ADVANCED}
+    )
     assert result["step_id"] == "advanced"
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {CONF_ALLOWED_SERIALS: "", CONF_UPLOAD_INTERVAL: 10}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options == {
-        CONF_PORT: 5279,
         CONF_MODE: MODE_ADVANCED,
         CONF_ALLOWED_SERIALS: "",
         CONF_UPLOAD_INTERVAL: 10,
     }
+    assert entry.data[CONF_PORT] == 5279
 
 
-async def test_options_new_port_is_checked(hass: HomeAssistant) -> None:
-    entry = make_entry(port=5279)
+async def test_options_back_to_simple_keeps_the_allow_list(
+    hass: HomeAssistant,
+) -> None:
+    entry = make_entry(MODE_ADVANCED, port=5279, allowed_serials="ABC123")
     entry.add_to_hass(hass)
-    other = make_entry(port=6000)
-    other.add_to_hass(hass)
     result = await hass.config_entries.options.async_init(entry.entry_id)
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {CONF_PORT: 6000, CONF_MODE: MODE_SIMPLE}
+        result["flow_id"], {CONF_MODE: MODE_SIMPLE}
     )
-    assert result["errors"] == {CONF_PORT: "port_in_use_by_entry"}
-    with patch(PORT_FREE, return_value=False):
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"], {CONF_PORT: 6001, CONF_MODE: MODE_SIMPLE}
-        )
-    assert result["errors"] == {CONF_PORT: "port_unavailable"}
-    with patch(PORT_FREE, return_value=True):
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"], {CONF_PORT: 6001, CONF_MODE: MODE_SIMPLE}
-        )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert entry.options[CONF_PORT] == 6001
+    assert entry.options[CONF_ALLOWED_SERIALS] == "ABC123"
+    assert entry.options[CONF_MODE] == MODE_SIMPLE
+
+
+async def test_options_on_an_unmigrated_entry_keep_its_port(
+    hass: HomeAssistant,
+) -> None:
+    """An entry whose port still sits in its options (from before
+    Reconfigure existed) keeps listening on that port."""
+    entry = make_entry(port=5279)
+    entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(entry, options={CONF_PORT: 6001})
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_MODE: MODE_SIMPLE}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert CONF_PORT not in entry.options
+    assert entry.data[CONF_PORT] == 6001
+
+
+def _strings() -> dict:
+    return json.loads(STRINGS.read_text(encoding="utf-8"))
+
+
+def test_the_port_page_warns_the_listener_is_open() -> None:
+    """No password, every interface: the setup says so, and why the
+    allow-list matters."""
+    text = _strings()["config"]["step"]["port"]["description"]
+    assert "every network interface" in text
+    assert "no password" in text
+    assert "allow-list" in text
+
+
+def test_finish_now_says_no_datalogger_was_seen() -> None:
+    step = _strings()["config"]["step"]["not_found"]
+    assert "no datalogger" in step["menu_options"]["finish"].lower()
+    assert "{port}" in step["description"]
+
+
+def test_the_entry_points_to_the_energy_dashboard() -> None:
+    text = _strings()["config"]["create_entry"]["default"]
+    assert "Settings → Dashboards → Energy" in text
+    assert "**Energy total**" in text
+    assert "**Solar Inverter**" in text
+
+
+def test_flow_copy_has_no_long_dashes() -> None:
+    strings = _strings()
+    for section in ("config", "options"):
+        text = json.dumps(strings[section], ensure_ascii=False)
+        assert "\u2014" not in text and "—" not in text
+        assert "–" not in text
+
+
+def test_translations_match_strings() -> None:
+    assert json.loads(EN.read_text(encoding="utf-8")) == _strings()

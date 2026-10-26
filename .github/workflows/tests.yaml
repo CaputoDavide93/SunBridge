@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   check:
-    name: Lint, tests and diagrams
+    name: Lint, typing, tests and diagrams
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -33,10 +33,52 @@ jobs:
       - name: ruff
         run: ruff check .
 
+      - name: mypy (strict, pyproject.toml)
+        run: mypy
+
       - name: Diagrams and README tables are current
         run: |
           python tools/gen_diagram.py --check
           python tools/gen_docs.py --check
+
+      - name: Release notes agree with the manifest
+        run: python tools/release_notes.py > /dev/null
+
+      - name: pytest, with the branch coverage gate (pyproject.toml)
+        run: pytest -q --cov --cov-report=term
+
+  home-assistant:
+    # The oldest supported release (hacs.json) and the newest one, beside the
+    # development pin the job above uses.
+    name: Tests on Home Assistant ${{ matrix.release }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        release: [minimum, latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: .github/ha-${{ matrix.release }}/requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r .github/ha-${{ matrix.release }}/requirements.txt
+
+      - name: The minimum is the one hacs.json declares
+        if: matrix.release == 'minimum'
+        run: |
+          python - <<'PY'
+          import json
+          from homeassistant.const import __version__
+          declared = json.load(open("hacs.json"))["homeassistant"]
+          assert __version__ == declared, f"tested {__version__}, hacs.json says {declared}"
+          print(f"Home Assistant {__version__} is the declared minimum")
+          PY
 
       - name: pytest
         run: pytest -q

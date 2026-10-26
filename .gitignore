@@ -11,6 +11,9 @@ htmlcov/
 venv/
 # The screenshot environment (make screenshots)
 .venv-screenshots/
+# The other Home Assistant releases CI tests (docs/development.md)
+.venv-ha-minimum/
+.venv-ha-latest/
 
 
 # OS / editor

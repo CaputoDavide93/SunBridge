@@ -1,0 +1,14 @@
+{
+  "entity": {
+    "sensor": {
+      "status": {
+        "default": "mdi:solar-panel",
+        "state": {
+          "waiting": "mdi:timer-sand",
+          "producing": "mdi:solar-power",
+          "fault": "mdi:alert-circle"
+        }
+      }
+    }
+  }
+}

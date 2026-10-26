@@ -1,0 +1,4 @@
+# The newest Home Assistant release the suite runs against. Dependabot bumps
+# this pin weekly, so a new Home Assistant is tested before users install it.
+# 0.13.375 is homeassistant==2026.10.4.
+pytest-homeassistant-custom-component==0.13.375

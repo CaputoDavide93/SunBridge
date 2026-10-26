@@ -70,7 +70,18 @@ published in tenths). See [data-layout.md](data-layout.md).
   14:10 on, every third upload was a `0x50`.
 - **Record time.** Buffered records carry the datalogger's clock in bytes
   60–65 of the payload; live records carry zeros there. On the capture day that
-  clock ran one hour ahead of UTC.
+  clock ran about one hour ahead of UTC: a buffered record that arrived at
+  14:54:52 UTC was stamped 15:54:25. SunBridge sets the clock in UTC, as the
+  observed server did, so the datalogger may apply a time zone of its own
+  setting; that is unverified. SunBridge keeps `record_time` as it comes,
+  without a zone and unshifted. Which clock (the datalogger's or the
+  inverter's) drives the inverter's daily energy counter is also unverified.
+- **Announce timing.** After a reconnect the datalogger announced 1.5 to 17
+  seconds after the ping before it. SunBridge gives a new connection 120
+  seconds to identify itself (an announce, or a record that decodes), and
+  pings do not extend that. A datalogger that connected without announcing
+  and with nothing buffered would be closed after 120 seconds and reconnect;
+  none did in the captures.
 - **Register table.** Data and announce records hold two register blocks, each
   with its own first and last register number (see
   [data-layout.md](data-layout.md)).

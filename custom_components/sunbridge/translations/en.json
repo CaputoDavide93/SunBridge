@@ -13,7 +13,7 @@
       },
       "port": {
         "title": "Choose the Port",
-        "description": "The datalogger will connect to this Home Assistant at the address and port below. Home Assistant detected its own address on your network as **{address}**. Check it, and correct it if Home Assistant has more than one network connection.",
+        "description": "The datalogger will connect to this Home Assistant at the address and port below. Home Assistant detected its own address on your network as **{address}**. Check it, and correct it if Home Assistant has more than one network connection.\n\n**Before you go on:** SunBridge listens on this port on every network interface of this Home Assistant, and the datalogger's protocol has no password. Any device that can reach the port can connect and send readings. That is why SunBridge answers only the datalogger it finds during setup: its serial goes in the allow-list. Keep the port reachable from your own network only, never forward it from the internet.",
         "data": {
           "port": "Port",
           "address": "Home Assistant's address"
@@ -30,54 +30,71 @@
       },
       "found": {
         "title": "Datalogger Found",
-        "description": "Your datalogger connected and sent a record SunBridge could read.\n\nDatalogger serial: **{datalogger}**\nInverter serial: **{inverter}**\n\nContinue to finish. Live readings appear with the next upload (every five minutes by default).",
+        "description": "Your datalogger connected and sent a record SunBridge could read.\n\nDatalogger serial: **{datalogger}**\nInverter serial: **{inverter}**\n\nSunBridge will answer only this datalogger. To accept a different one later, open **Configure** and choose **Advanced**.\n\nContinue to finish. Live readings appear with the next upload (every five minutes by default).",
         "data": {}
       },
       "not_found": {
         "title": "No Datalogger Yet",
-        "description": "Nothing arrived on port {port} in {minutes} minutes.\n\nCheck that the datalogger's Server IP is `{address}`, its Server port is `{port}`, ResolvDomain is OFF, and that it was rebooted. At night the datalogger is off: that is normal, and it connects once the sun is up.",
+        "description": "Nothing arrived on port {port} in {minutes} minutes.\n\nCheck that the datalogger's Server IP is `{address}`, its Server port is `{port}`, ResolvDomain is OFF, and that it was rebooted. At night the datalogger is off: that is normal, and it connects once the sun is up.\n\n**Finish now** keeps SunBridge listening on port {port}, which Home Assistant has checked it can open. No datalogger has been seen yet, so the allow-list stays empty and SunBridge answers any datalogger that connects; **Settings → System → Repairs** says so. Once your datalogger has connected, SunBridge puts its serial in the allow-list the next time it starts (a restart or a reload), or you can add it yourself from **Configure** by choosing **Advanced**.",
         "menu_options": {
-          "finish": "Finish now: the datalogger appears when it connects",
+          "finish": "Finish now: the port is ready, no datalogger seen yet",
           "retry": "Try again: listen once more"
         }
       },
       "advanced": {
         "title": "Advanced Settings",
-        "description": "The datalogger found during setup is already in the allow-list, so SunBridge will answer only that datalogger. Leave the list empty to accept any datalogger.\n\nThe upload interval is set on the datalogger's own web page (its Data Transfer Interval). Enter the same value here. SunBridge does not change the datalogger: it uses this to decide when live readings are out of date.",
+        "description": "The datalogger found during setup is already in the allow-list, so SunBridge will answer only that datalogger. Leave the list empty to accept any datalogger, which anything on your network could then pretend to be.\n\nThe upload interval is set on the datalogger's own web page (its Data Transfer Interval). Enter the same value here. SunBridge does not change the datalogger: it uses this to decide when live readings are out of date.",
         "data": {
           "allowed_serials": "Allowed datalogger serials",
           "upload_interval": "Datalogger upload interval"
         },
         "data_description": {
-          "allowed_serials": "Accept only these dataloggers, by serial, separated by commas. Leave empty to accept any datalogger.",
+          "allowed_serials": "Accept only these dataloggers, by serial, separated by commas: up to 10, each 1 to 30 letters and digits. Leave empty to accept any datalogger.",
           "upload_interval": "Minutes between the datalogger's uploads, as set on its web page (default 5)."
+        }
+      },
+      "reconfigure": {
+        "title": "Change the Port",
+        "description": "SunBridge listens on port {port} now. Enter a new port and Home Assistant checks it can open it, then moves the listener there. If the move fails, SunBridge goes back to port {port}; if even that fails, this form says so and **Settings → System → Repairs** names the port to free.\n\nAfterwards, set the same **Server port** on the datalogger's web page (**Network Setting**) and reboot it, or it keeps sending to the old port.",
+        "data": {
+          "port": "Port"
+        },
+        "data_description": {
+          "port": "The TCP port to listen on. 5279 is the port Growatt dataloggers use."
         }
       }
     },
     "error": {
       "port_unavailable": "Something else is already listening on this port. Pick another one, and set the same port on the datalogger.",
       "invalid_address": "Enter an IPv4 address, such as 192.0.2.10.",
-      "invalid_serial": "A serial may only contain letters and digits."
+      "invalid_serial": "A serial may only contain the letters A to Z and the digits 0 to 9.",
+      "port_in_use_by_entry": "Another SunBridge entry already listens on this port.",
+      "serial_too_long": "A datalogger serial is at most 30 characters long.",
+      "duplicate_serial": "The same serial is in the list twice.",
+      "too_many_serials": "List at most 10 serials."
     },
     "abort": {
-      "already_configured": "SunBridge is already listening on port {port}. Two listeners cannot share a port: to change that entry, use Configure on it, or choose another port for a second datalogger."
+      "already_configured": "SunBridge is already listening on port {port}. Two listeners cannot share a port: to change that entry, use Configure on it, or choose another port for a second datalogger.",
+      "reconfigure_successful": "SunBridge now listens on the new port. Set the same Server port on the datalogger if you have not already.",
+      "port_rollback_failed": "SunBridge could not move to the new port, and could not go back to port {port} either, so it is not listening now. Its settings are back on port {port}. Free that port (stop whatever else is using it), then reload SunBridge from its integration page. **Settings → System → Repairs** shows this until SunBridge listens again."
     },
     "progress": {
       "wait_for_datalogger": "Waiting for your datalogger on `{address}` port `{port}`. This page moves on by itself as soon as the datalogger sends its first record. It listens for up to {minutes} minutes; after a reboot the datalogger usually connects within two or three."
+    },
+    "create_entry": {
+      "default": "SunBridge is listening.\n\nTo count your solar production in the Energy dashboard, open **Settings → Dashboards → Energy**, choose **Add solar production** under **Solar panels**, and pick **Energy total** from the **Solar Inverter** device. SunBridge does not change your Energy settings itself."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "SunBridge Settings",
-        "description": "Saving reloads the listener: open connections are closed and the datalogger reconnects.",
+        "description": "Saving reloads the listener: open connections are closed and the datalogger reconnects. To change the port, use **Reconfigure** instead.",
         "data": {
-          "port": "Port",
           "mode": "Setup mode"
         },
         "data_description": {
-          "port": "The TCP port to listen on.",
-          "mode": "Simple creates the core sensors. Advanced adds the extra sensors, an allow-list and the upload interval."
+          "mode": "Simple creates the core sensors. Advanced adds the extra sensors, and lets you edit the allow-list and the upload interval."
         }
       },
       "advanced": {
@@ -88,15 +105,16 @@
           "upload_interval": "Datalogger upload interval"
         },
         "data_description": {
-          "allowed_serials": "Accept only these dataloggers, by serial, separated by commas. Leave empty to accept any datalogger.",
+          "allowed_serials": "Accept only these dataloggers, by serial, separated by commas: up to 10, each 1 to 30 letters and digits. Leave empty to accept any datalogger.",
           "upload_interval": "Minutes between the datalogger's uploads, as set on its web page (default 5)."
         }
       }
     },
     "error": {
-      "port_unavailable": "Something else is already listening on this port. Pick another one, and set the same port on the datalogger.",
-      "port_in_use_by_entry": "Another SunBridge entry already listens on this port.",
-      "invalid_serial": "A serial may only contain letters and digits."
+      "invalid_serial": "A serial may only contain the letters A to Z and the digits 0 to 9.",
+      "serial_too_long": "A datalogger serial is at most 30 characters long.",
+      "duplicate_serial": "The same serial is in the list twice.",
+      "too_many_serials": "List at most 10 serials."
     }
   },
   "selector": {
@@ -171,6 +189,24 @@
   "exceptions": {
     "port_unavailable": {
       "message": "Cannot listen on port {port}: {error}"
+    }
+  },
+  "issues": {
+    "allow_list_empty": {
+      "title": "{title} answers any datalogger",
+      "description": "SunBridge on port {port} has an empty allow-list and has not seen a datalogger yet, so it answers any datalogger that connects. Anything on your network could pretend to be one.\n\nOnce your datalogger has connected, SunBridge puts its serial in the allow-list the next time it starts (a restart or a reload of the integration), and this message goes away. To set it now, open **Configure** on the SunBridge entry, choose **Advanced**, and enter the datalogger's serial (it is on the datalogger's label and on its device page)."
+    },
+    "allow_list_ambiguous": {
+      "title": "{title} answers any datalogger",
+      "description": "SunBridge on port {port} has an empty allow-list, so it answers any datalogger that connects. It knows {count} dataloggers, so it cannot tell which one is yours and has not picked one.\n\nOpen **Configure** on the SunBridge entry, choose **Advanced**, and enter the serial of each datalogger you own (it is on the datalogger's label and on its device page). This message goes away once the list is set. Delete the device of any datalogger that is not yours."
+    },
+    "port_rollback_failed": {
+      "title": "{title} is not listening",
+      "description": "Changing the port to {new_port} failed, and going back to port {port} failed too, so SunBridge is not listening and no datalogger data arrives.\n\nFree port {port} (stop whatever else is using it), then reload SunBridge from its integration page, or use **Reconfigure** to choose another free port and set the same **Server port** on the datalogger. This message clears itself as soon as SunBridge listens again."
+    },
+    "datalogger_silent": {
+      "title": "{name} has stopped sending data",
+      "description": "SunBridge has received nothing from {name} for {hours} hours of daylight, when the inverter should be producing.\n\nCheck that the datalogger has power and a network connection, that its **Server IP** still points at this Home Assistant and its **Server port** is {port}, and that nothing on your network blocks that port.\n\nThis message clears itself as soon as the datalogger connects again. If the datalogger was replaced or removed, delete its device on the SunBridge integration page instead."
     }
   }
 }

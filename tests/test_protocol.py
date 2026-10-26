@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import random
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 
 from custom_components.sunbridge.protocol import (
+    SERIAL_LEN,
     TYPE_ANNOUNCE,
     TYPE_BUFFERED,
     TYPE_DATA,
@@ -20,6 +22,7 @@ from custom_components.sunbridge.protocol import (
     descramble,
     parse_frame,
     scramble,
+    valid_serial,
 )
 
 from .captures import DATALOGGER, INVERTER, records, responses
@@ -229,3 +232,81 @@ def test_after_a_violation_nothing_more_is_parsed() -> None:
     buffer = FrameBuffer()
     buffer.feed(b"\xff" * 100_000)
     assert buffer.feed(records()[0].raw) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["A", "DLGEXAMPLE", "dlgexample", "abc123XYZ", "9" * 30, DATALOGGER, INVERTER],
+)
+def test_a_serial_that_fits_the_protocol_field(text: str) -> None:
+    assert valid_serial(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "X" * 31,  # longer than the 30-byte field: could never match a frame
+        "DLG EXAMPLE",
+        "DLG-EXAMPLE",
+        "DLG,EXAMPLE",
+        "DLGÉXAMPLE",  # not ASCII
+        "DLG١٢٣",  # alphanumeric, but not ASCII digits
+        " DLGEXAMPLE",
+        "DLGEXAMPLE\n",
+    ],
+)
+def test_a_serial_that_cannot_be_one(text: str) -> None:
+    assert not valid_serial(text)
+
+
+def test_the_length_limit_is_the_serial_field() -> None:
+    assert SERIAL_LEN == 30
+    assert valid_serial("A" * SERIAL_LEN)
+    assert not valid_serial("A" * (SERIAL_LEN + 1))
+
+
+LONDON = ZoneInfo("Europe/London")
+
+
+def _clock_value(when: datetime) -> str:
+    return parse_frame(build_clock("DLGEXAMPLE", when)).payload[-19:].decode()
+
+
+@pytest.mark.parametrize(
+    ("when", "written"),
+    [
+        # Summer time: local 13:00 BST is 12:00 UTC.
+        (datetime(2026, 7, 1, 13, 0, tzinfo=LONDON), "2026-07-01 12:00:00"),
+        # Winter: London is UTC.
+        (datetime(2026, 12, 1, 13, 0, tzinfo=LONDON), "2026-12-01 13:00:00"),
+        # Local midnight in summer is still yesterday in UTC.
+        (datetime(2026, 6, 1, 0, 30, tzinfo=LONDON), "2026-05-31 23:30:00"),
+        # New Year in UTC, whatever the zone it arrives in.
+        (datetime(2027, 1, 1, 0, 0, tzinfo=UTC), "2027-01-01 00:00:00"),
+        # The hour that happens twice when the clocks go back (25 Oct 2026).
+        (datetime(2026, 10, 25, 1, 30, fold=0, tzinfo=LONDON), "2026-10-25 00:30:00"),
+        (datetime(2026, 10, 25, 1, 30, fold=1, tzinfo=LONDON), "2026-10-25 01:30:00"),
+        # Just after the clocks go forward (29 Mar 2026, 01:00 UTC).
+        (datetime(2026, 3, 29, 2, 0, tzinfo=LONDON), "2026-03-29 01:00:00"),
+        # Fractions of a second are dropped, never rounded up.
+        (datetime(2026, 10, 25, 12, 13, 29, 999999, tzinfo=UTC), "2026-10-25 12:13:29"),
+    ],
+)
+def test_the_clock_written_is_always_utc(when: datetime, written: str) -> None:
+    """Whatever zone `now` comes in, the datalogger is told the UTC time, as
+    the server we observed did, so the value never jumps at a DST change."""
+    assert _clock_value(when) == written
+
+
+def test_the_utc_clock_runs_straight_through_the_clocks_going_back() -> None:
+    first = datetime(2026, 10, 25, 0, 59, 59, tzinfo=UTC)
+    values = [_clock_value(first + timedelta(minutes=m)) for m in range(0, 121, 30)]
+    assert values == sorted(values)
+    assert len(set(values)) == len(values)
+
+
+def test_a_clock_without_a_zone_is_refused() -> None:
+    """A naive time could be any zone's: refuse rather than guess."""
+    with pytest.raises(ValueError, match="time zone"):
+        build_clock("DLGEXAMPLE", datetime(2026, 10, 25, 12, 0))

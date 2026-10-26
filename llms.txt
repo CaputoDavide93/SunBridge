@@ -1,16 +1,16 @@
 # SunBridge
 
-> SunBridge is a free, open-source (MIT) Home Assistant custom integration that reads a Growatt solar inverter locally through its ShineLan-X datalogger. The datalogger is pointed at Home Assistant once, and SunBridge becomes the server it uploads to: live power, PV voltage, inverter temperature, status, energy today and lifetime energy appear as Home Assistant sensors, ready for the Energy dashboard. No Growatt account, no cloud, no internet while running, no MQTT broker, no proxy container, no RS485 wiring. Installs through HACS as a custom repository, with a guided setup in Home Assistant's UI.
+> SunBridge is a free, open-source (MIT) Home Assistant custom integration that reads a Growatt solar inverter locally through its ShineLan-X datalogger. The datalogger is pointed at Home Assistant once, and SunBridge becomes the server it uploads to: live power, PV voltage, inverter temperature, status, energy today and lifetime energy appear as Home Assistant sensors, and the lifetime total can be added to the Energy dashboard. No Growatt account, no cloud, no internet while running, no MQTT broker, no proxy container, no RS485 wiring. Installs through HACS as a custom repository, with a guided setup in Home Assistant's UI.
 
 Key facts:
 
 - Tested hardware: Growatt MIC 2500TL-X single-phase inverter with a ShineLan-X (Ethernet) datalogger on firmware 3.6.0.2. Other Growatt dataloggers with a Server IP setting on their web page (ShineWiFi models, for example) are likely to work but unverified. Other Growatt single-phase inverters are unverified. Batteries, meters and three-phase inverters are not read.
 - How it works: SunBridge listens on TCP port 5279 (by default) inside Home Assistant. It acknowledges the datalogger's announce, live and buffered records, echoes its pings, and sets the datalogger's clock. Each reply equals, byte for byte, what the original server sent in captured traffic.
 - Safety: it never writes to the inverter and never changes inverter or datalogger settings; the only messages it sends are the ping echo, the acknowledgement and the datalogger's clock, and a test pins that list.
-- Energy: the lifetime total never decreases, even across restarts. Buffered (catch-up) records are acknowledged and counted but never update a sensor, so energy is never counted twice.
+- Energy: the lifetime total is added to the Energy dashboard by hand, as solar production. A single reading the inverter could not have made (lower than the last, or higher than 50 kW could have added in the elapsed time) is ignored, even across restarts; three agreeing live readings accept a reset, and the Energy dashboard starts a new cycle. Buffered (catch-up) records are acknowledged and counted but never update a sensor, so a replay never adds energy again.
 - Update rate: every datalogger upload, five minutes by default (set on the datalogger's own web page).
 - Trade-off: while the datalogger points at Home Assistant, the Growatt cloud and app receive no new data. Pointing it back at the cloud restores them.
-- Requirements: Home Assistant 2026.9 or newer, the datalogger and Home Assistant on the same local network.
+- Requirements: Home Assistant 2026.9 or newer, the datalogger and Home Assistant on the same local network, a fixed address for Home Assistant, and TCP port 5279 reachable from the datalogger (Docker installs need host networking or a published port).
 - Security: the datalogger protocol has no authentication; keep the port on the local network.
 - Independent project, not affiliated with or endorsed by Growatt.
 

@@ -65,6 +65,10 @@ async def test_diagnostics_name_no_serial(
     assert diagnostics["listener"]["connections_open"] == 1
     assert diagnostics["entry"]["settings"]["allowed_serials"] == "1 serial(s)"
     assert diagnostics["inverters"][0]["energy_total"] == 2312.1
+    assert records["lifetime_jumps_ignored"] == 0
+    assert records["lifetime_resets_accepted"] == 0
+    assert diagnostics["inverters"][0]["lifetime_jumps_ignored"] == 0
+    assert diagnostics["inverters"][0]["lifetime_resets_accepted"] == 0
     await logger.close()
 
 
@@ -117,3 +121,18 @@ async def test_diagnostics_hold_no_serial_from_an_unknown_record_type(
         assert serial.encode().hex() not in text
     assert diagnostics["records"]["by_type"]["0x77"] == 1
     await logger.close()
+
+
+async def test_diagnostics_of_an_entry_that_is_not_loaded(hass: HomeAssistant) -> None:
+    """No listener: the settings and the entry's state, still with no serial."""
+    from custom_components.sunbridge.diagnostics import (
+        async_get_config_entry_diagnostics,
+    )
+
+    entry = make_entry("advanced", allowed_serials=DATALOGGER)
+    entry.add_to_hass(hass)
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert DATALOGGER not in json.dumps(diagnostics)
+    assert diagnostics["entry"]["settings"]["allowed_serials"] == "1 serial(s)"
+    assert diagnostics["entry"]["state"] == ConfigEntryState.NOT_LOADED.value
+    assert "listener" not in diagnostics

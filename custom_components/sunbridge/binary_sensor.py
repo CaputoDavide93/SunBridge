@@ -37,6 +37,9 @@ async def async_setup_entry(
     entry.async_on_unload(
         async_dispatcher_connect(hass, hub.signal_new_datalogger, add)
     )
+    entry.async_on_unload(
+        async_dispatcher_connect(hass, hub.signal_removed, added.discard)
+    )
 
 
 class DataloggerConnected(BinarySensorEntity):

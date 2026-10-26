@@ -1,0 +1,5 @@
+# The oldest Home Assistant SunBridge supports: the "homeassistant" field of
+# hacs.json. CI fails if the two disagree. Raise both together, never this
+# file alone; Dependabot does not watch this directory on purpose.
+# 0.13.363 is homeassistant==2026.9.0.
+pytest-homeassistant-custom-component==0.13.363

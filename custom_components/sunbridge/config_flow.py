@@ -6,28 +6,37 @@ instructions for the datalogger, then a step that listens on the port until
 the datalogger's first record decodes and shows its serials. Advanced adds a
 last page: a datalogger serial allow-list (prefilled with the one found) and
 the upload interval the datalogger is set to (on its own web page; the
-integration does not change it).
+integration does not change it). Simple allow-lists the datalogger found
+without asking.
 
-Options are the port and the mode, and the Advanced page again.
+The entry's data is the listener's identity, its port, and nothing else:
+Reconfigure changes it, after checking the new port binds, and puts the old
+one back if the listener cannot move; if even that fails, the flow aborts and
+Repairs names the port. Options are preferences: the mode, and the Advanced
+page again.
 """
 
 from __future__ import annotations
 
 import asyncio
 import ipaddress
+import logging
 import socket
+from enum import Enum
 from typing import Any
 
 import voluptuous as vol
 from homeassistant.components.network import async_get_source_ip
 from homeassistant.config_entries import (
     ConfigEntry,
+    ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
     OptionsFlowWithReload,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers import selector
 
 from .const import (
@@ -48,13 +57,63 @@ from .const import (
     SETUP_WAIT_SECONDS,
     parse_serials,
 )
-from .hub import entry_settings
+from .hub import async_settle_allow_list, entry_settings, rollback_issue_id
+from .protocol import valid_serial
 from .server import SunBridge
+
+_LOGGER = logging.getLogger(__name__)
 
 # Only shown during setup, to fill in the datalogger instructions; not stored.
 CONF_ADDRESS = "address"
 
-SERIAL_CHARS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+# One entry serves at most a couple of dataloggers; ten leaves room for a
+# replaced one or two without making the list a place to paste anything.
+MAX_ALLOWED_SERIALS = 10
+PREFERENCES = (CONF_MODE, CONF_ALLOWED_SERIALS, CONF_UPLOAD_INTERVAL)
+
+
+class _Move(Enum):
+    """How a port move ended."""
+
+    MOVED = "moved"
+    ROLLED_BACK = "rolled_back"
+    FAILED = "failed"
+
+
+def _title(port: int) -> str:
+    return f"SunBridge (port {port})"
+
+
+def _split(entry: ConfigEntry) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The entry as (data, options): the port alone, then the preferences.
+
+    Before Reconfigure existed the options flow stored the port too, and
+    options win over data, so an options port is the one in use.
+    """
+    settings = entry_settings(entry)
+    return (
+        {CONF_PORT: int(settings[CONF_PORT])},
+        {key: settings[key] for key in PREFERENCES},
+    )
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """1.1 to 1.2: the port moves to data, the preferences to options, and a
+    Simple entry (0.1.0 had no allow-list) adopts its one known datalogger
+    (see `hub.async_settle_allow_list`)."""
+    if entry.version > SunBridgeConfigFlow.VERSION:
+        return False
+    if entry.minor_version < 2:
+        data, options = _split(entry)
+        hass.config_entries.async_update_entry(
+            entry,
+            data=data,
+            options=options,
+            version=SunBridgeConfigFlow.VERSION,
+            minor_version=SunBridgeConfigFlow.MINOR_VERSION,
+        )
+        async_settle_allow_list(hass, entry)
+    return True
 
 
 def _port_free(port: int) -> bool:
@@ -90,13 +149,8 @@ def _mode_selector() -> selector.SelectSelector:
     )
 
 
-def _main_schema(port: int, mode: str) -> vol.Schema:
-    return vol.Schema(
-        {
-            vol.Required(CONF_PORT, default=port): _port_selector(),
-            vol.Required(CONF_MODE, default=mode): _mode_selector(),
-        }
-    )
+def _port_schema(port: int) -> vol.Schema:
+    return vol.Schema({vol.Required(CONF_PORT, default=port): _port_selector()})
 
 
 def _advanced_schema(serials: str, interval: int) -> vol.Schema:
@@ -120,11 +174,33 @@ def _advanced_schema(serials: str, interval: int) -> vol.Schema:
     )
 
 
-def _check_advanced(user_input: dict[str, Any]) -> tuple[dict[str, Any], dict]:
+def _allow_list_error(text: str | None) -> str | None:
+    """Why an allow-list cannot be saved, or None.
+
+    The listener's own rule (`protocol.valid_serial`) decides what a serial
+    can be; anything else could never match a datalogger's frame. The
+    reasons are told apart only so the form can say which one it was.
+    """
+    serials = [s.upper() for s in (text or "").replace(",", " ").split()]
+    rejected = [s for s in serials if not valid_serial(s)]
+    if any(not (s.isascii() and s.isalnum()) for s in rejected):
+        return "invalid_serial"
+    if rejected:
+        return "serial_too_long"
+    if len(set(serials)) != len(serials):
+        return "duplicate_serial"
+    if len(serials) > MAX_ALLOWED_SERIALS:
+        return "too_many_serials"
+    return None
+
+
+def _check_advanced(
+    user_input: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, str]]:
     """Normalised advanced settings, and any errors."""
+    if error := _allow_list_error(user_input.get(CONF_ALLOWED_SERIALS)):
+        return {}, {CONF_ALLOWED_SERIALS: error}
     serials = parse_serials(user_input.get(CONF_ALLOWED_SERIALS))
-    if any(not set(s) <= SERIAL_CHARS for s in serials):
-        return {}, {CONF_ALLOWED_SERIALS: "invalid_serial"}
     return {
         CONF_ALLOWED_SERIALS: ", ".join(sorted(serials)),
         CONF_UPLOAD_INTERVAL: int(user_input[CONF_UPLOAD_INTERVAL]),
@@ -188,6 +264,7 @@ class SunBridgeConfigFlow(ConfigFlow, domain=DOMAIN):
     """
 
     VERSION = 1
+    MINOR_VERSION = 2
 
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}
@@ -343,6 +420,10 @@ class SunBridgeConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_finish(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
+        """No datalogger yet: the port must still bind, or nothing is saved."""
+        if not await _can_listen(self.hass, self._data[CONF_PORT]):
+            self._port_errors = {CONF_PORT: "port_unavailable"}
+            return await self.async_step_port()
         return await self._next_after_wait()
 
     async def async_step_retry(
@@ -374,6 +455,9 @@ class SunBridgeConfigFlow(ConfigFlow, domain=DOMAIN):
     async def _next_after_wait(self) -> ConfigFlowResult:
         if self._data[CONF_MODE] == MODE_ADVANCED:
             return await self.async_step_advanced()
+        found = self._listener.datalogger if self._listener else None
+        self._data[CONF_ALLOWED_SERIALS] = found or ""
+        self._data[CONF_UPLOAD_INTERVAL] = DEFAULT_UPLOAD_INTERVAL
         return self._create()
 
     def _placeholders(self) -> dict[str, str]:
@@ -394,12 +478,112 @@ class SunBridgeConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def _create(self) -> ConfigFlowResult:
         return self.async_create_entry(
-            title=f"SunBridge (port {self._data[CONF_PORT]})", data=self._data
+            title=_title(self._data[CONF_PORT]),
+            data={CONF_PORT: self._data[CONF_PORT]},
+            options={key: self._data[key] for key in PREFERENCES},
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """A new port for the listener. Preferences stay in Configure."""
+        entry = self._get_reconfigure_entry()
+        current = int(entry_settings(entry)[CONF_PORT])
+        errors: dict[str, str] = {}
+        port = current
+        if user_input is not None:
+            port = int(user_input[CONF_PORT])
+            entries = self._async_current_entries(include_ignore=False)
+            if port == current:
+                return self.async_abort(reason="reconfigure_successful")
+            if _port_in_use_by_entry(entries, port, skip=entry.entry_id):
+                errors[CONF_PORT] = "port_in_use_by_entry"
+            # Checked while the old listener still runs: a refusal here
+            # stops nothing.
+            elif not await _can_listen(self.hass, port):
+                errors[CONF_PORT] = "port_unavailable"
+            else:
+                moved = await self._move_listener(entry, current, port)
+                if moved is _Move.MOVED:
+                    return self.async_abort(reason="reconfigure_successful")
+                if moved is _Move.FAILED:
+                    return self.async_abort(
+                        reason="port_rollback_failed",
+                        description_placeholders={"port": str(current)},
+                    )
+                errors[CONF_PORT] = "port_unavailable"
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=_port_schema(port),
+            description_placeholders={"port": str(current)},
+            errors=errors,
+        )
+
+    async def _move_listener(self, entry: ConfigEntry, old: int, new: int) -> _Move:
+        """Reload on the new port; if it will not bind, go back to the old.
+
+        Either reload may fail or raise. A failed rollback leaves the old
+        settings saved but nothing listening, so Repairs says which port to
+        free; the next setup that loads clears it."""
+        before = (dict(entry.data), dict(entry.options), entry.title)
+        data, options = _split(entry)
+        data[CONF_PORT] = new
+        title = _title(new) if entry.title == _title(old) else entry.title
+        hass = self.hass
+        hass.config_entries.async_update_entry(
+            entry, data=data, options=options, title=title
+        )
+        if await self._reload(entry, new):
+            return _Move.MOVED
+        hass.config_entries.async_update_entry(
+            entry, data=before[0], options=before[1], title=before[2]
+        )
+        if await self._reload(entry, old):
+            return _Move.ROLLED_BACK
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            rollback_issue_id(entry.entry_id),
+            is_fixable=False,
+            # Kept across a restart: the busy port may stop setup from ever
+            # running the code that would raise it again.
+            is_persistent=True,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key="port_rollback_failed",
+            translation_placeholders={
+                "title": entry.title,
+                "port": str(old),
+                "new_port": str(new),
+            },
+        )
+        return _Move.FAILED
+
+    async def _reload(self, entry: ConfigEntry, port: int) -> bool:
+        """Reload the entry; True only if the reload reported success and the
+        entry is loaded with a listener on `port` afterwards.
+
+        A reload can return False with the OLD listener still loaded (its
+        unload failed), so being LOADED alone does not prove the move."""
+        try:
+            reloaded = await self.hass.config_entries.async_reload(entry.entry_id)
+        except Exception:  # any failure means "not moved"; logged below
+            _LOGGER.warning(
+                "Reloading SunBridge on port %s failed", port, exc_info=True
+            )
+            return False
+        hub = getattr(entry, "runtime_data", None)
+        return (
+            bool(reloaded)
+            and entry.state is ConfigEntryState.LOADED
+            and getattr(hub, "port", None) == port
         )
 
 
 class SunBridgeOptionsFlow(OptionsFlowWithReload):
-    """The same settings, changed later. Saving reloads the listener."""
+    """The preferences, changed later. Saving reloads the listener.
+
+    The port is not here: Reconfigure moves it, with a rollback.
+    """
 
     def __init__(self) -> None:
         self._options: dict[str, Any] = {}
@@ -407,38 +591,36 @@ class SunBridgeOptionsFlow(OptionsFlowWithReload):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        errors: dict[str, str] = {}
         current = entry_settings(self.config_entry)
         if user_input is not None:
-            port = int(user_input[CONF_PORT])
-            mode = user_input[CONF_MODE]
-            entries = self.hass.config_entries.async_entries(DOMAIN)
-            if _port_in_use_by_entry(entries, port, skip=self.config_entry.entry_id):
-                errors[CONF_PORT] = "port_in_use_by_entry"
-            # Our own listener holds the current port; only a new one is tested.
-            elif port != int(current[CONF_PORT]) and not await _can_listen(
-                self.hass, port
-            ):
-                errors[CONF_PORT] = "port_unavailable"
-            else:
-                self._options = {
-                    CONF_PORT: port,
-                    CONF_MODE: mode,
-                    CONF_ALLOWED_SERIALS: current[CONF_ALLOWED_SERIALS],
-                    CONF_UPLOAD_INTERVAL: int(current[CONF_UPLOAD_INTERVAL]),
-                }
-                if mode == MODE_ADVANCED:
-                    return await self.async_step_advanced()
-                return self.async_create_entry(data=self._options)
-        src = user_input or {}
+            self._keep_port_in_data()
+            self._options = {
+                CONF_MODE: user_input[CONF_MODE],
+                CONF_ALLOWED_SERIALS: current[CONF_ALLOWED_SERIALS],
+                CONF_UPLOAD_INTERVAL: int(current[CONF_UPLOAD_INTERVAL]),
+            }
+            if user_input[CONF_MODE] == MODE_ADVANCED:
+                return await self.async_step_advanced()
+            return self.async_create_entry(data=self._options)
         return self.async_show_form(
             step_id="init",
-            data_schema=_main_schema(
-                int(src.get(CONF_PORT, current[CONF_PORT])),
-                src.get(CONF_MODE, current[CONF_MODE]),
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_MODE, default=current[CONF_MODE]
+                    ): _mode_selector(),
+                }
             ),
-            errors=errors,
         )
+
+    @callback
+    def _keep_port_in_data(self) -> None:
+        """Saving replaces the options: an entry that still kept its port
+        there (from before Reconfigure) moves it to data first."""
+        entry = self.config_entry
+        if CONF_PORT in entry.options:
+            data, _ = _split(entry)
+            self.hass.config_entries.async_update_entry(entry, data=data)
 
     async def async_step_advanced(
         self, user_input: dict[str, Any] | None = None

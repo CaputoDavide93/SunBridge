@@ -1,0 +1,25 @@
+name: ❓ Question
+description: Something about SunBridge the docs do not answer.
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Most answers are in the [FAQ](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/faq.md)
+        and [Troubleshooting](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/troubleshooting.md).
+        Never paste a datalogger or inverter serial, or a packet capture:
+        write `DLGEXAMPLE` and `INVEXAMPLE` instead.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What you want to know, and what you have already tried or read.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: SunBridge version
+      description: Settings → Devices & services → SunBridge shows it.
+    validations:
+      required: false

@@ -14,6 +14,10 @@ Per connection, for every whole frame:
 - 0x50 buffered data: acknowledged, decoded, reported as buffered (old values);
 - only a record whose payload decodes identifies the connection's datalogger
   and its inverter, and so may create a device;
+- a connection that has not identified its datalogger within
+  IDENTIFY_TIMEOUT_SECONDS of connecting is closed, pings or not;
+- once identified, a connection belongs to that datalogger for good: any
+  later frame carrying another datalogger serial closes it, unanswered;
 - 0x18 / 0x19: the datalogger's answers to commands; nothing is sent back.
 """
 
@@ -49,8 +53,15 @@ _LOGGER = logging.getLogger(__name__)
 
 READ_SIZE = 4096
 # Bound on the serials remembered for redaction. The serial fields themselves
-# are always zeroed; this only covers serials repeated elsewhere in a frame.
+# are always zeroed and the frame's own serials always blanked wherever they
+# appear; this cache only adds serials met in earlier frames.
 MAX_SEEN_SERIALS = 64
+# A connection must identify its datalogger (an announce or data record that
+# decodes) within this long of connecting; valid pings before that do not
+# extend it, so pings alone cannot hold a connection slot. In the captures
+# every announce came at most 18 s after the ping before it, and buffered
+# records follow every 30 s after a reconnect.
+IDENTIFY_TIMEOUT_SECONDS = 120
 
 
 class Listener(Protocol):
@@ -82,6 +93,8 @@ class ServerStats:
     crc_failures: int = 0
     resyncs: int = 0
     rejected: int = 0
+    serial_mismatches: int = 0
+    unidentified_timeouts: int = 0
     decode_errors: int = 0
     violations: int = 0
     connections_total: int = 0
@@ -103,8 +116,9 @@ def _redacted(frame: Frame, seen: set[str]) -> str:
 
     For a record type we do not know, nothing of the payload is kept, only
     the header. For the others the two serial fields are zeroed whatever the
-    type, and every serial this server has seen is blanked wherever it
-    appears (the announce repeats the inverter's among its registers).
+    type, and the frame's own serials, plus every serial in `seen`, are
+    blanked wherever they appear (the announce repeats the inverter's among
+    its registers). The frame's own never depend on `seen`, which is bounded.
     """
     if frame.record_type not in KNOWN_TYPES:
         withheld = len(frame.payload)
@@ -112,7 +126,7 @@ def _redacted(frame: Frame, seen: set[str]) -> str:
     payload = bytearray(frame.payload)
     payload[: 2 * SERIAL_LEN] = bytes(min(len(payload), 2 * SERIAL_LEN))
     clean = bytes(payload)
-    for serial in seen:
+    for serial in {*serial_candidates(frame), *seen}:
         encoded = serial.encode("ascii")
         clean = clean.replace(encoded, bytes(len(encoded)))
     return (frame.raw[:8] + clean).hex()
@@ -130,6 +144,7 @@ class SunBridge:
         allowed_serials: frozenset[str] = frozenset(),
         idle_timeout: float = 600,
         handshake_timeout: float = 30,
+        identify_timeout: float = IDENTIFY_TIMEOUT_SECONDS,
         max_connections: int = 4,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
@@ -139,6 +154,7 @@ class SunBridge:
         self._allowed = allowed_serials
         self._idle_timeout = idle_timeout
         self._handshake_timeout = handshake_timeout
+        self._identify_timeout = identify_timeout
         self._max_connections = max_connections
         self._now = now
         self._server: asyncio.Server | None = None
@@ -193,7 +209,22 @@ class SunBridge:
             return
         task = asyncio.get_running_loop().create_task(self._serve(reader, writer))
         self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        task.add_done_callback(self._handler_done)
+
+    def _handler_done(self, task: asyncio.Task[None]) -> None:
+        """Forget a finished handler, and log any error it did not expect.
+
+        Retrieving the exception here is what keeps it from surfacing later as
+        "Task exception was never retrieved". A cancelled handler (stopping)
+        is not an error.
+        """
+        self._tasks.discard(task)
+        if task.cancelled():
+            return
+        if (err := task.exception()) is not None:
+            _LOGGER.error(
+                "A datalogger connection failed unexpectedly", exc_info=err
+            )
 
     async def _serve(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -205,8 +236,10 @@ class SunBridge:
         self._writers.add(writer)
         buffer = FrameBuffer()
         loop = asyncio.get_running_loop()
-        # Only whole, CRC-checked frames move the deadline, never bare bytes.
-        deadline = loop.time() + self._handshake_timeout
+        # Only whole, CRC-checked frames move the deadline, never bare bytes,
+        # and until the datalogger is identified, never past identify_by.
+        identify_by = loop.time() + self._identify_timeout
+        deadline = min(loop.time() + self._handshake_timeout, identify_by)
         try:
             while True:
                 remaining = deadline - loop.time()
@@ -215,16 +248,21 @@ class SunBridge:
                         raise TimeoutError
                     data = await asyncio.wait_for(reader.read(READ_SIZE), remaining)
                 except TimeoutError:
-                    _LOGGER.debug(
-                        "Closing a connection with no valid frame in time"
-                    )
+                    if info.datalogger_serial is None and info.frames:
+                        self.stats.unidentified_timeouts += 1
+                        _LOGGER.debug(
+                            "Closing a connection that never identified a "
+                            "datalogger in time"
+                        )
+                    else:
+                        _LOGGER.debug(
+                            "Closing a connection with no valid frame in time"
+                        )
                     break
                 if not data:
                     break
                 crc, resync = buffer.crc_failures, buffer.resyncs
                 frames = buffer.feed(data)
-                if frames:
-                    deadline = loop.time() + self._idle_timeout
                 self.stats.crc_failures += buffer.crc_failures - crc
                 self.stats.resyncs += buffer.resyncs - resync
                 keep_open = buffer.violation is None
@@ -240,6 +278,10 @@ class SunBridge:
                         break
                 if not keep_open:
                     break
+                if frames:
+                    deadline = loop.time() + self._idle_timeout
+                    if info.datalogger_serial is None:
+                        deadline = min(deadline, identify_by)
         except (ConnectionError, OSError) as err:
             _LOGGER.debug("Connection dropped: %s", err)
         finally:
@@ -264,10 +306,21 @@ class SunBridge:
             )
             return False
 
+        bound = info.datalogger_serial
+        if bound is not None and serial != bound:
+            self.stats.serial_mismatches += 1
+            _LOGGER.warning(
+                "Closing a connection that switched to another datalogger serial"
+            )
+            return False
+
         info.frames += 1
         self.stats.record_types[name] += 1
-        if len(self._seen_serials) < MAX_SEEN_SERIALS:
-            self._seen_serials.update(serial_candidates(frame))
+        # One at a time: a frame with two new serials must not overshoot.
+        for candidate in serial_candidates(frame):
+            if len(self._seen_serials) >= MAX_SEEN_SERIALS:
+                break
+            self._seen_serials.add(candidate)
         self.stats.last_frames[name] = _redacted(frame, self._seen_serials)
 
         if frame.record_type == TYPE_PING:

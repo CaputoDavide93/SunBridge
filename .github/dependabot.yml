@@ -13,3 +13,12 @@ updates:
       interval: weekly
     labels:
       - dependencies
+
+  # The newest Home Assistant CI tests against. .github/ha-minimum/ is left
+  # out on purpose: it moves only with hacs.json.
+  - package-ecosystem: pip
+    directory: /.github/ha-latest
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies

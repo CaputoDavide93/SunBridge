@@ -17,6 +17,8 @@ permissions:
 jobs:
   validate:
     name: Validate with HACS Action
+    # The HACS action can only validate public repositories.
+    if: github.event.repository.private == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

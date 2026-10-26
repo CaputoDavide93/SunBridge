@@ -1,0 +1,88 @@
+name: 🐛 Bug report
+description: SunBridge does something wrong, or the docs say something untrue.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Before you send it, replace every datalogger or
+        inverter serial with `DLGEXAMPLE` / `INVEXAMPLE` and every LAN address
+        with `192.0.2.10`. Security problems go
+        [privately](https://github.com/CaputoDavide93/SunBridge/security/advisories/new), never here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: From a known state, as exactly as you can. Include the time of day if it matters (night, dawn).
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: sunbridge
+    attributes:
+      label: SunBridge version
+      description: Settings → Devices & services → SunBridge, or HACS.
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: homeassistant
+    attributes:
+      label: Home Assistant version
+      description: Settings → About.
+      placeholder: 2026.10.4
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installation type
+      options:
+        - Home Assistant OS
+        - Container (Docker, Podman)
+        - Supervised
+        - Core (Python virtual environment)
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Inverter, datalogger and firmware
+      placeholder: MIC 2500TL-X, ShineLan-X 3.6.0.2
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        Settings → Devices & services → SunBridge → ⋮ → Download diagnostics,
+        then drag the file here. Diagnostics carry no serials or addresses;
+        read the file first anyway.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log
+      description: |
+        Home Assistant's log around the problem, ideally with debug logging on
+        (`custom_components.sunbridge: debug`, see docs/troubleshooting.md).
+        Replace addresses and serials first.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I read the troubleshooting guide and searched the existing issues.
+          required: true
+        - label: Nothing I attached holds a real serial or LAN address.
+          required: true

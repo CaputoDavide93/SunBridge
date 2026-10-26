@@ -54,7 +54,8 @@ async def setup_entry(
 
     yield _setup
     for entry in entries:
-        if entry.state.recoverable:
+        removed = hass.config_entries.async_get_entry(entry.entry_id) is None
+        if not removed and entry.state.recoverable:
             await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
 

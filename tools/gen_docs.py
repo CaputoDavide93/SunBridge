@@ -137,9 +137,12 @@ def modes() -> str:
         ("Sensors", ", ".join(simple), f"Everything in Simple, plus {added}"),
         (
             "Dataloggers answered",
-            "Any",
+            "Only the serials in the allow-list: the one setup found, edited in "
+            "Advanced. Empty (setup finished before one connected, or an entry "
+            "from 0.1.0) answers any, with a Repairs notice, until the entry "
+            "knows exactly one datalogger: its next start adopts that one",
             "Only the serials in the allow-list, prefilled with the one setup "
-            "found (empty accepts any)",
+            "found and editable (empty accepts any)",
         ),
         (
             "Upload interval expected",

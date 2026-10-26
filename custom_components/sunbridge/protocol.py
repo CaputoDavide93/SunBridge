@@ -17,7 +17,7 @@ A frame on the wire:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
 KEY = b"Growatt"
 HEADER_LEN = 8  # 6-byte header + unit id + record type
@@ -99,6 +99,13 @@ class Frame:
         if self.record_type not in ACKED_TYPES:
             return None
         return _ascii(self.payload[SERIAL_LEN : 2 * SERIAL_LEN])
+
+
+def valid_serial(text: str) -> bool:
+    """Whether `text` can be a serial a frame carries: 1 to 30 ASCII letters
+    or digits. A longer one would not fit the 30-byte field, so it could never
+    match a datalogger's frame."""
+    return 0 < len(text) <= SERIAL_LEN and text.isascii() and text.isalnum()
 
 
 def serial_candidates(frame: Frame) -> list[str]:
@@ -233,8 +240,18 @@ def build_ack(frame: Frame) -> bytes:
 
 
 def build_clock(datalogger_serial: str, now_utc: datetime) -> bytes:
-    """Set the datalogger's clock (register 0x1F) to `now_utc`, in UTC."""
-    value = now_utc.strftime("%Y-%m-%d %H:%M:%S").encode("ascii")
+    """Set the datalogger's clock (register 0x1F) to `now_utc`, in UTC.
+
+    The value is always the UTC wall time, to the second (fractions dropped),
+    as the server we observed sent it: an aware time in any other zone is
+    converted first, so the value never jumps when local clocks change. A
+    naive time is refused, since its zone is unknown. What the datalogger
+    then does with the value (the one we captured stamped its buffered
+    records an hour ahead of UTC) is its own affair; see decoder.record_time.
+    """
+    if now_utc.tzinfo is None or now_utc.utcoffset() is None:
+        raise ValueError("the clock needs a time zone aware time")
+    value = now_utc.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S").encode("ascii")
     serial = datalogger_serial.encode("ascii")[:SERIAL_LEN].ljust(SERIAL_LEN, b"\x00")
     payload = (
         serial

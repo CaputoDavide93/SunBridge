@@ -1,0 +1,14 @@
+# Every issue goes through a form. Discussions are off, so questions are
+# issues too, through the Question form: these links answer most of them
+# first.
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Security problem
+    url: https://github.com/CaputoDavide93/SunBridge/security/advisories/new
+    about: Report a vulnerability privately, never in a public issue.
+  - name: 🚀 Setup guide
+    url: https://github.com/CaputoDavide93/SunBridge/blob/main/docs/setup.md
+    about: Every setup screen, networking, the datalogger's settings, removal.
+  - name: 🛠️ Troubleshooting and FAQ
+    url: https://github.com/CaputoDavide93/SunBridge/blob/main/docs/troubleshooting.md
+    about: The datalogger's light and the common symptoms, by cause.

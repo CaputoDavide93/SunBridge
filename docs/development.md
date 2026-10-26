@@ -4,8 +4,36 @@
 
 ```bash
 make venv       # Home Assistant 2026.9.4 test environment, built with uv
-make check      # ruff, pytest, diagrams and generated docs current
+make check      # ruff, mypy, pytest with coverage, diagrams and generated docs current
 make hassfest   # Home Assistant's own validation, in Docker
+```
+
+| Check | What it enforces | Configured in |
+|---|---|---|
+| `make lint` | ruff's correctness, import and bug-pattern rules | `pyproject.toml` |
+| `make typing` | mypy in strict mode over `custom_components/sunbridge`, against the pinned Home Assistant's own types, with no per-module overrides | `pyproject.toml` |
+| `make test` | the suite, with branch coverage of the integration; it fails under 95% | `pyproject.toml` |
+
+## CI
+
+| Workflow | When | What |
+|---|---|---|
+| `tests.yaml` | push, pull request | `make check`'s steps on the development pin (`requirements_test.txt`), the release notes check, then the suite on the oldest supported Home Assistant (`.github/ha-minimum/`, which must equal `hacs.json`'s `homeassistant`) and the newest one (`.github/ha-latest/`, bumped weekly by Dependabot) |
+| `hassfest.yaml` | push, pull request | Home Assistant's manifest and config-flow validation |
+| `validate.yaml` | push, pull request | HACS's own repository checks |
+| `codeql.yaml` | push, pull request | GitHub's code scanning of the Python and the workflows |
+| `dependency-review.yaml` | pull request | refuses a new dependency with a known vulnerability |
+| `release.yaml` | a `v*` tag | see [Releasing](#releasing) |
+
+Code scanning, dependency review and HACS's checks run on the public
+repository only; GitHub offers them free there.
+
+To run the suite on the other two releases locally:
+
+```bash
+uv venv -q --python 3.14 .venv-ha-latest
+VIRTUAL_ENV=.venv-ha-latest uv pip install -q -r .github/ha-latest/requirements.txt
+.venv-ha-latest/bin/python -m pytest -q
 ```
 
 `make diagram` redraws the diagrams in `docs/assets/` (the architecture and
@@ -36,8 +64,8 @@ Chromium. Then `tools/screenshots/take_screenshots.py`:
 3. writes the captured live records' power into the power sensor's history
    (their own values and spacing, the times moved to end as Home Assistant
    started), sends the last live record over the socket, and photographs
-   both devices, the power sensor's history and the Energy dashboard's solar
-   setting.
+   both devices, the power sensor's history, the Energy dashboard's solar
+   setting, and the entry's Reconfigure form (opened, never saved).
 
 Only demo data reaches an image. Every captured frame is replayed with its
 serials replaced by `DLGEXAMPLE` and `INVEXAMPLE` (re-scrambled, CRC
@@ -109,6 +137,35 @@ them unchanged.
 
 The protocol comes only from these captures and from Home Assistant's history;
 no other project's source was read or used.
+
+## Releasing
+
+The version lives in three places, and the release refuses unless all three
+agree: `custom_components/sunbridge/manifest.json`, the newest section of
+[CHANGELOG.md](../CHANGELOG.md), and the tag.
+
+1. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`
+   (today's date), drop any empty `###` heading under it, and put a fresh
+   empty `## [Unreleased]` above it.
+2. Set `"version": "X.Y.Z"` in `manifest.json`.
+3. `make release-notes TAG=vX.Y.Z` checks the three agree and prints the
+   notes; `make check` must pass. Commit both files
+   (`chore: release X.Y.Z`) and merge to `main`.
+4. Tag the merged commit and push the tag:
+
+   ```bash
+   git tag -a vX.Y.Z -m "SunBridge X.Y.Z"
+   git push origin vX.Y.Z
+   ```
+
+5. `release.yaml` checks the tag against the manifest and the changelog,
+   runs every check on the tagged commit, zips
+   `custom_components/sunbridge/` as `sunbridge.zip`, and publishes the
+   GitHub release with that section of the changelog as its notes. HACS
+   offers the update from there.
+
+Versions follow [Semantic Versioning](https://semver.org/): a change that
+renames an entity or needs the user to act is a major one.
 
 ## Adding a register
 

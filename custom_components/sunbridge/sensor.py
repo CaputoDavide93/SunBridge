@@ -6,25 +6,30 @@ Two kinds:
   live 0x04 records and go unavailable once none has arrived for the stale
   window;
 - running totals (energy today, energy total, working time) and the last
-  reading time keep their last value, across nights and restarts.
+  reading time keep their last value, across nights and restarts. Energy
+  today is the inverter's own daily counter, shown as 0 from Home Assistant's
+  local midnight until the first live record of the new day.
 
 Simple mode creates the core sensors, each matched against Home Assistant's
 own history of the same inverter (docs/data-layout.md). Advanced mode adds the
 extra ones, which are plausibility-checked but have no such ground truth.
+Switching back to Simple disables those in the registry rather than deleting
+them, so a later switch to Advanced brings them back as they were.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
+from datetime import date, datetime
+from typing import Any, Self
 
 from homeassistant.components.sensor import (
     RestoreSensor,
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
+    SensorExtraStoredData,
     SensorStateClass,
 )
 from homeassistant.const import (
@@ -41,6 +46,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.event import async_track_time_change
+from homeassistant.util import dt as dt_util
 
 from . import ShineConfigEntry
 from .const import DOMAIN
@@ -212,8 +219,13 @@ TOTAL_SENSORS: tuple[TotalDescription, ...] = (
 )
 
 ADVANCED_KEYS = frozenset(
-    d.key for d in (*LIVE_SENSORS, *TOTAL_SENSORS) if d.advanced
+    {
+        *(d.key for d in LIVE_SENSORS if d.advanced),
+        *(d.key for d in TOTAL_SENSORS if d.advanced),
+    }
 )
+# Registry option marking an entity this integration disabled for Simple mode.
+OPTION_DISABLED_BY_SIMPLE = "disabled_by_simple_mode"
 
 
 def _unique_id(serial: str, key: str) -> str:
@@ -229,8 +241,7 @@ async def async_setup_entry(
     hub = entry.runtime_data
     added: set[str] = set()
 
-    if not hub.advanced:
-        _remove_advanced_entities(hass, entry)
+    _sync_advanced_entities(hass, entry, hub.advanced)
 
     @callback
     def add(serial: str) -> None:
@@ -243,7 +254,7 @@ async def async_setup_entry(
             if hub.advanced or not d.advanced
         ]
         entities += [
-            TotalSensor(hub, serial, d)
+            (TodaySensor if d.key == "energy_today" else TotalSensor)(hub, serial, d)
             for d in TOTAL_SENSORS
             if hub.advanced or not d.advanced
         ]
@@ -254,17 +265,42 @@ async def async_setup_entry(
     entry.async_on_unload(
         async_dispatcher_connect(hass, hub.signal_new_inverter, add)
     )
+    entry.async_on_unload(
+        async_dispatcher_connect(hass, hub.signal_removed, added.discard)
+    )
 
 
 @callback
-def _remove_advanced_entities(hass: HomeAssistant, entry: ShineConfigEntry) -> None:
-    """Back to Simple: the Advanced sensors leave the registry too."""
+def _sync_advanced_entities(
+    hass: HomeAssistant, entry: ShineConfigEntry, advanced: bool
+) -> None:
+    """Simple disables the Advanced sensors it does not create, keeping their
+    names, history and settings; Advanced enables only those Simple disabled.
+    One the user disabled, or one disabled by default and never enabled,
+    stays as it was."""
     registry = er.async_get(hass)
     for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
         if entity.domain != "sensor" or entity.platform != DOMAIN:
             continue
-        if any(entity.unique_id.endswith(f"_{key}") for key in ADVANCED_KEYS):
-            registry.async_remove(entity.entity_id)
+        if not any(entity.unique_id.endswith(f"_{key}") for key in ADVANCED_KEYS):
+            continue
+        options: Mapping[str, Any] = entity.options.get(DOMAIN) or {}
+        ours = bool(options.get(OPTION_DISABLED_BY_SIMPLE))
+        if not advanced and entity.disabled_by is None:
+            registry.async_update_entity(
+                entity.entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION
+            )
+            registry.async_update_entity_options(
+                entity.entity_id, DOMAIN, {OPTION_DISABLED_BY_SIMPLE: True}
+            )
+            # Not created in Simple: no "unavailable" left standing for it.
+            hass.states.async_remove(entity.entity_id)
+        elif advanced and ours:
+            if entity.disabled_by is er.RegistryEntryDisabler.INTEGRATION:
+                registry.async_update_entity(entity.entity_id, disabled_by=None)
+            registry.async_update_entity_options(
+                entity.entity_id, DOMAIN, {OPTION_DISABLED_BY_SIMPLE: False}
+            )
 
 
 class _InverterSensor(SensorEntity):
@@ -282,7 +318,8 @@ class _InverterSensor(SensorEntity):
 
     @property
     def _state(self) -> InverterState:
-        return self._hub.inverters.setdefault(self._serial, InverterState(self._serial))
+        # Never stored from here: a removed device must stay forgotten.
+        return self._hub.inverters.get(self._serial) or InverterState(self._serial)
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -331,18 +368,92 @@ class TotalSensor(_InverterSensor, RestoreSensor):
             return
         value = last.native_value
         if self.entity_description.key == "last_reading":
-            if not isinstance(value, datetime):
-                return
-        else:
-            try:
-                value = float(value)
-            except (TypeError, ValueError):
-                return
-        self._restored = value
+            if isinstance(value, datetime):
+                self._restored = value
+                self._hub.seed_last_reading(self._serial, value)
+            return
+        if isinstance(value, date):  # a total is a number, never a date
+            return
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return
+        self._restored = number
         if self.entity_description.key == "energy_total":
-            self._hub.seed_lifetime(self._serial, value)
+            self._hub.seed_lifetime(self._serial, number)
 
     @property
     def native_value(self) -> Any:
         value = self.entity_description.value_fn(self._state)
         return self._restored if value is None else value
+
+
+@dataclass
+class TodayStoredData(SensorExtraStoredData):
+    """The saved value, and the local day it belongs to."""
+
+    day: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return super().as_dict() | {"day": self.day}
+
+    @classmethod
+    def from_dict(cls, restored: dict[str, Any]) -> Self | None:
+        base = SensorExtraStoredData.from_dict(restored)
+        if base is None:
+            return None
+        return cls(
+            base.native_value, base.native_unit_of_measurement, restored.get("day")
+        )
+
+
+class TodaySensor(TotalSensor):
+    """The inverter's daily counter, 0 from Home Assistant's local midnight.
+
+    The inverter resets its counter when it starts in the morning, so all
+    night the last record still carries yesterday's total. The new day starts
+    at local midnight here instead, in whatever time zone Home Assistant is
+    set to, daylight saving included. total_increasing turns the drop into
+    a new cycle; no last_reset is involved.
+    """
+
+    _restored_day: date | None = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_track_time_change(
+                self.hass, self._midnight, hour=0, minute=0, second=0
+            )
+        )
+        if self._restored is None:
+            return
+        extra = await self.async_get_last_extra_data()
+        stored = TodayStoredData.from_dict(extra.as_dict()) if extra else None
+        if stored is not None and stored.day:
+            self._restored_day = date.fromisoformat(stored.day)
+        else:  # saved by an older version: the state's own time decides
+            last = await self.async_get_last_state()
+            if last is not None:
+                self._restored_day = dt_util.as_local(last.last_updated).date()
+
+    @callback
+    def _midnight(self, _now: datetime) -> None:
+        self.async_write_ha_state()
+
+    @property
+    def native_value(self) -> Any:
+        value = self._hub.energy_today(self._serial)
+        if value is not None:
+            return value
+        if self._restored is None:
+            return None
+        return self._restored if self._restored_day == dt_util.now().date() else 0.0
+
+    @property
+    def extra_restore_state_data(self) -> TodayStoredData:
+        return TodayStoredData(
+            self.native_value,
+            self.native_unit_of_measurement,
+            dt_util.now().date().isoformat(),
+        )

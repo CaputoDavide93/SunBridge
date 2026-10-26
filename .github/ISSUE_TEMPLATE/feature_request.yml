@@ -1,0 +1,31 @@
+name: ✨ Feature request
+description: Something SunBridge could do.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        SunBridge only reads: it never writes to the inverter, and sends the
+        datalogger nothing but acknowledgements, ping echoes and its clock.
+        Ideas that need more than that are out of scope.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do, and what stops you today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What SunBridge could do about it.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: |
+        For a new reading: where it shows up on the inverter or in the Growatt
+        app, and its values at a few known moments.

@@ -3,7 +3,8 @@
 Serials identify the household's hardware, so they never appear: devices are
 numbered instead, the allow-list is reported by its size, and the last frame
 of each known record type is the descrambled frame with its serial fields
-zeroed (an unknown type keeps its header only).
+zeroed and its own serials blanked wherever else they appear, however many
+serials the listener has met (an unknown type keeps its header only).
 """
 
 from __future__ import annotations
@@ -52,6 +53,7 @@ async def async_get_config_entry_diagnostics(
             "connections_open": len(hub.server.connections),
             "connections_total": stats.connections_total,
             "connections_refused_over_cap": stats.refused_connections,
+            "connections_closed_unidentified": stats.unidentified_timeouts,
             "connections": [
                 {
                     "open_seconds": round((now - info.connected_at).total_seconds()),
@@ -67,11 +69,14 @@ async def async_get_config_entry_diagnostics(
             "resyncs": stats.resyncs,
             "connections_dropped_for_protocol_violations": stats.violations,
             "rejected_by_allow_list": stats.rejected,
+            "connections_closed_for_serial_mismatch": stats.serial_mismatches,
             "decode_errors": stats.decode_errors,
             "clock_sets": stats.clock_sets,
             "live_applied": hub.counters.live_records,
             "buffered_ignored": hub.counters.buffered_records,
             "lifetime_decreases_ignored": hub.counters.lifetime_decreases_ignored,
+            "lifetime_jumps_ignored": hub.counters.lifetime_jumps_ignored,
+            "lifetime_resets_accepted": hub.counters.lifetime_resets_accepted,
             "dataloggers_refused_over_cap": hub.counters.refused_dataloggers,
             "inverters_ignored_over_cap": hub.counters.refused_inverters,
             "last_frame_by_type": dict(sorted(stats.last_frames.items())),
@@ -86,6 +91,8 @@ async def async_get_config_entry_diagnostics(
                 "buffered_records": state.buffered_records,
                 "last_buffered_record_time": _iso(state.last_buffered_time),
                 "lifetime_decreases_ignored": state.lifetime_decreases_ignored,
+                "lifetime_jumps_ignored": state.lifetime_jumps_ignored,
+                "lifetime_resets_accepted": state.lifetime_resets_accepted,
             }
             for state in hub.inverters.values()
         ],

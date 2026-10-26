@@ -16,8 +16,11 @@ import pytest
 from custom_components.sunbridge.decoder import (
     STATUS_PRODUCING,
     STATUS_WAITING,
+    TIME_OFFSET,
     DecodeError,
+    check_announce,
     decode,
+    record_time,
     registers,
 )
 from custom_components.sunbridge.protocol import (
@@ -157,3 +160,87 @@ def test_registers_the_docs_say_repeat() -> None:
         regs = registers(parse_frame(record.raw).payload)
         assert (regs[3001], regs[3002]) == (regs[3005], regs[3006])
         assert regs[3038] == regs[3026]
+
+
+def _stamped(*fields: int) -> bytes:
+    """A payload with only the six record-time bytes set (year minus 2000)."""
+    return bytes(TIME_OFFSET) + bytes(fields) + b"\x00"
+
+
+@pytest.mark.parametrize(
+    ("fields", "expected"),
+    [
+        ((26, 10, 25, 0, 0, 0), datetime(2026, 10, 25, 0, 0, 0)),  # midnight
+        ((26, 10, 24, 23, 59, 59), datetime(2026, 10, 24, 23, 59, 59)),
+        ((26, 12, 31, 23, 59, 59), datetime(2026, 12, 31, 23, 59, 59)),
+        ((27, 1, 1, 0, 0, 0), datetime(2027, 1, 1, 0, 0, 0)),
+        ((28, 2, 29, 12, 0, 0), datetime(2028, 2, 29, 12, 0, 0)),  # leap day
+        # UK clocks go back at 02:00 BST on 25 Oct 2026: 01:30 happens twice
+        # in local time. The stamp is taken as written, once, with no zone.
+        ((26, 10, 25, 1, 30, 0), datetime(2026, 10, 25, 1, 30, 0)),
+        # UK clocks go forward at 01:00 GMT on 29 Mar 2026: 01:30 never
+        # happens in local time, but the datalogger may still write it.
+        ((26, 3, 29, 1, 30, 0), datetime(2026, 3, 29, 1, 30, 0)),
+    ],
+)
+def test_record_time_is_the_dataloggers_wall_clock(
+    fields: tuple[int, ...], expected: datetime
+) -> None:
+    """The stamp is the datalogger's own clock, whose zone the record does not
+    say (the captured one ran an hour ahead of the UTC it was given), so it is
+    returned naive and never shifted for DST."""
+    stamp = record_time(_stamped(*fields))
+    assert stamp == expected
+    assert stamp.tzinfo is None
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        (0, 0, 0, 0, 0, 0),  # live records: no stamp
+        (27, 2, 29, 12, 0, 0),  # no 29 February in 2027
+        (26, 10, 25, 24, 0, 0),  # hour 24
+        (26, 13, 1, 0, 0, 0),  # month 13
+        (26, 10, 25, 12, 60, 0),  # minute 60
+    ],
+)
+def test_record_time_that_is_not_a_time_is_none(fields: tuple[int, ...]) -> None:
+    assert record_time(_stamped(*fields)) is None
+
+
+def test_record_time_of_a_short_payload_is_none() -> None:
+    assert record_time(bytes(TIME_OFFSET + 3)) is None
+
+
+def _payload(blocks: bytes, *, stamp: bytes = bytes(6)) -> bytes:
+    """Two serials, a record time, then a block table."""
+    serial = DATALOGGER.encode().ljust(30, b"\x00")
+    return serial + INVERTER.encode().ljust(30, b"\x00") + stamp + blocks
+
+
+@pytest.mark.parametrize(
+    ("payload", "reason"),
+    [
+        (_payload(b""), "too short"),
+        (_payload(bytes([1]) + b"\x00\x01"), "block header past the end"),
+        (_payload(bytes([1]) + b"\x00\x05\x00\x01"), "runs backwards"),
+        (_payload(bytes([1]) + b"\x00\x01\x00\x02\x00"), "past the end of the record"),
+    ],
+)
+def test_a_malformed_block_table_is_refused(payload: bytes, reason: str) -> None:
+    with pytest.raises(DecodeError, match=reason):
+        registers(payload)
+
+
+def test_an_announce_without_registers_is_refused() -> None:
+    with pytest.raises(DecodeError, match="no registers"):
+        check_announce(_payload(bytes([0])))
+
+
+def test_a_record_time_that_is_not_a_date_is_none() -> None:
+    assert record_time(_payload(bytes([0]), stamp=bytes([26, 13, 40, 25, 61, 0]))) is None
+
+
+def test_a_record_missing_a_register_is_refused() -> None:
+    with pytest.raises(DecodeError, match="not in the record"):
+        decode(_payload(bytes([1]) + b"\x00\x00\x00\x00" + b"\x00\x00"))

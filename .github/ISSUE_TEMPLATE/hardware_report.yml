@@ -1,0 +1,84 @@
+name: 🔌 Hardware report
+description: SunBridge on an inverter or datalogger not yet marked tested, whether it worked or not.
+labels: [hardware]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every report widens what SunBridge is known to work with. A report that
+        it did **not** work is just as useful.
+
+        **Never attach a raw packet capture here.** Every record in one holds
+        both serials, and the "scrambling" is a fixed XOR, not encryption. If
+        you have one, say so below and the maintainer will arrange a private
+        way to share it.
+  - type: input
+    id: inverter
+    attributes:
+      label: Inverter model
+      placeholder: Growatt MIC 3000TL-X
+    validations:
+      required: true
+  - type: input
+    id: datalogger
+    attributes:
+      label: Datalogger model and firmware
+      description: The firmware is on the datalogger's web page.
+      placeholder: ShineLan-X 3.6.0.2
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: SunBridge and Home Assistant versions
+      placeholder: SunBridge 0.2.0, Home Assistant 2026.10.4
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Did it work?
+      options:
+        - Yes, every value matches
+        - Partly, some values look wrong
+        - Setup found the datalogger, but no sensor updates
+        - Setup never found the datalogger
+    validations:
+      required: true
+  - type: textarea
+    id: comparison
+    attributes:
+      label: Readings side by side
+      description: |
+        A few values from SunBridge next to the inverter's own display or the
+        Growatt app at the same moment (power, PV voltage, energy today,
+        energy total). This is the evidence a register needs.
+      placeholder: |
+        Time    | SunBridge power | Inverter display
+        13:05   | 1240 W          | 1.24 kW
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        Settings → Devices & services → SunBridge → ⋮ → Download diagnostics,
+        then drag the file here. Diagnostics carry no serials or addresses;
+        read the file first anyway.
+    validations:
+      required: true
+  - type: dropdown
+    id: capture
+    attributes:
+      label: Do you have a packet capture to share privately?
+      options:
+        - "No"
+        - Yes, I can share it privately
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: Nothing I attached holds a real serial or LAN address.
+          required: true

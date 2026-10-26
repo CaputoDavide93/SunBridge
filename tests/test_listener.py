@@ -166,9 +166,11 @@ async def test_advanced_mode_adds_the_extra_sensors(
     await logger.close()
 
 
-async def test_back_to_simple_removes_the_extra_sensors(
+async def test_back_to_simple_disables_the_extra_sensors(
     hass: HomeAssistant, setup_entry
 ) -> None:
+    """Disabled, not deleted: switching back to Advanced restores them with
+    their names and history (tests/test_entities.py covers the way back)."""
     entry = await setup_entry(make_entry(MODE_ADVANCED))
     logger = await _client(hass, entry)
     await _send(hass, logger, ANNOUNCE, replies=2)
@@ -180,8 +182,9 @@ async def test_back_to_simple_removes_the_extra_sensors(
     hass.config_entries.async_update_entry(entry, options={"mode": "simple"})
     await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
-    assert registry.async_get("sensor.solar_inverter_grid_frequency") is None
-    assert registry.async_get(POWER) is not None
+    extra = registry.async_get("sensor.solar_inverter_grid_frequency")
+    assert extra.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+    assert registry.async_get(POWER).disabled_by is None
 
 
 async def test_buffered_records_never_change_the_states(

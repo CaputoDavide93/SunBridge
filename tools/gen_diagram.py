@@ -246,8 +246,8 @@ def architecture(scheme):
               "temperature, status"], icon="chart"),
         k.box(xs[2], low, W, H, "Diagnostics", ["counts per record type,",
               "CRC failures, no serials"], icon="pulse"),
-        k.box(xs[3], low, W, H, "Energy dashboard", ["lifetime energy,",
-              "never decreasing"], icon="house"),
+        k.box(xs[3], low, W, H, "Energy dashboard", ["lifetime energy, odd",
+              "readings held back"], icon="house"),
         k.edge([(xs[0] + W + 8, mid), (xs[1] - 8, mid)], label="inverter data"),
         k.edge([(xs[1] + W + 8, mid - 14), (xs[2] - 8, mid - 14)],
                label="0x03 0x04 0x50 0x16"),
@@ -257,7 +257,7 @@ def architecture(scheme):
         k.edge([(xs[2] + W / 2, top + H + 8), (xs[2] + W / 2, low - 8)]),
         k.edge([(xs[3] + W / 2, top + H + 8), (xs[3] + W / 2, low - 8)]),
         k.footer("Buffered 0x50 records carry old values: they are acknowledged and "
-                 "counted, never shown, and the lifetime total never goes down."),
+                 "counted, never shown, and never reach the lifetime total."),
     )
     return k.render()
 

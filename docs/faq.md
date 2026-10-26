@@ -93,10 +93,18 @@ Assistant again. A new firmware may change the data layout: the
 
 ### How do I add it to the Energy dashboard?
 
-**Settings → Dashboards → Energy → Solar panels → Add solar production** and
-pick `sensor.solar_inverter_energy_total`. It never goes down, even across
-restarts, so the dashboard cannot count the same energy twice. Remove any
-other source for the same inverter first.
+By hand, once: **Settings → Dashboards → Energy → Solar panels → Add solar
+production** and pick **Energy total** of **Solar Inverter**
+(`sensor.solar_inverter_energy_total`). SunBridge never changes the Energy
+settings itself. Remove any other source for the same inverter first, or
+its energy is counted twice.
+
+Two rules keep the total honest: buffered records (replays of old data)
+never reach it, and a single reading the inverter could not have made (lower
+than the last, or more than 50 kW could have added since) is ignored, even
+across restarts. Three live readings in a row that agree are accepted as a
+reset, and the dashboard starts a new cycle. Details in
+[setup.md](setup.md#4-energy-dashboard).
 
 ### How often does it update?
 
@@ -122,14 +130,43 @@ appear under `records.by_type` in diagnostics.
 ### What happens at night?
 
 The datalogger is powered by the inverter, so it stops at night. After three
-upload intervals without a live record (never sooner than 15 minutes), the
-live sensors turn unavailable, and the energy totals keep their last value.
+upload intervals without a live record (never sooner than 15 minutes), or two
+minutes after the datalogger's last connection closes, the live sensors turn
+unavailable, and the energy totals and the last reading time keep their last
+value. A datalogger silent at night raises no Repairs notice; one silent
+through three hours of daylight (added up across days), or for 24 hours,
+does, restarts and reloads included.
 
 ### When does "Energy today" reset?
 
-When the inverter resets it: SunBridge shows the inverter's own counter. The
-exact moment (midnight by the inverter's clock, or start-up in the morning)
-has not been verified.
+At Home Assistant's local midnight, in its time zone, daylight saving
+included: it shows 0 from then until the first live reading of the new day.
+The value is the inverter's own daily counter, shown as it comes; the moment
+the inverter itself resets it (midnight by its clock, or start-up in the
+morning) has not been verified, and SunBridge sets the datalogger's clock in
+UTC. For the Energy dashboard use **Energy total**, not Energy today.
+
+### I replaced my inverter or datalogger. What happens?
+
+The new one appears as a new device. While the old device is still there,
+the new one is named with its serial (for example **Solar Inverter
+INVEXAMPLE**) so the two never share a name. Delete the old one from its
+device page (**⋮ → Delete**) once it no longer reports: SunBridge refuses to
+delete a device that is connected or reporting live values. The allow-list
+refuses a new datalogger until its serial is added under **Configure →
+Advanced** (switching back to Simple keeps the list). A new inverter has
+sensors of its own, so add its **Energy total** to the Energy dashboard
+too.
+
+### I upgraded from 0.1.0. Which dataloggers does SunBridge answer?
+
+0.1.0 had no allow-list in Simple mode, so it answered any datalogger. On
+upgrade, an entry that knows exactly one datalogger (its device is on the
+SunBridge page) puts that serial in its allow-list, and from then on answers
+only that one. An entry that knows none, or more than one, keeps answering
+any datalogger and raises a notice in **Settings → System → Repairs**: set
+the list yourself under **Configure → Advanced**, and the notice goes away.
+Advanced entries keep the list they had.
 
 ### Can SunBridge change the upload interval?
 
@@ -144,3 +181,9 @@ marked out of date at the right time.
 No: the datalogger's protocol has no authentication and its scrambling is a
 fixed XOR. Keep the port on your local network, never forwarded from the
 internet. See [SECURITY.md](../SECURITY.md).
+
+### How do I remove SunBridge?
+
+Point the datalogger back at the cloud first, then delete the integration,
+uninstall it and restart. What stays (history, statistics) is in
+[Removing SunBridge](setup.md#removing-sunbridge).

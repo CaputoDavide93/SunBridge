@@ -22,8 +22,9 @@
 SunBridge is a free, open-source Home Assistant integration for Growatt solar
 inverters with a **ShineLan-X** datalogger. You point the datalogger at Home
 Assistant once, and SunBridge becomes the server it uploads to. Live power,
-daily energy and lifetime energy land in the Energy dashboard, and your solar
-data never leaves your network.
+daily energy and lifetime energy become Home Assistant sensors, the lifetime
+total is ready to add to the Energy dashboard, and your solar data never
+leaves your network.
 
 ### Why SunBridge
 
@@ -69,17 +70,19 @@ Details and every screen are in [Quick Start](#-quick-start) and
 | 📡 | A server inside Home Assistant | Listens on TCP (port 5279 by default) for the datalogger's uploads, acknowledges `0x03`, `0x04` and `0x50` records as the datalogger expects, and echoes its `0x16` pings |
 | 🏠 | Nothing leaves the house | No cloud, no account, no MQTT broker. SunBridge only answers the datalogger, on your own network |
 | ⚡ | Live sensors | Power, PV voltage, inverter temperature and status from every live record, each checked against Home Assistant's own history of the same inverter |
-| 🔋 | Energy dashboard ready | Energy today and a lifetime total that never goes down, even across restarts, so nothing is counted twice |
+| 🔋 | Energy dashboard ready | A lifetime total to add as solar production (by hand, once). Buffered records never reach it, and a single reading the inverter could not have made (lower than the last, or more than 50 kW could add) is ignored, even across restarts; three agreeing live readings accept a reset |
 | 🛡️ | Hands off the inverter | SunBridge writes no inverter settings. It sends three things only: the ping echo, the acknowledgement and the datalogger's clock, and a test pins that list |
 | 🗃️ | Old data stays old | Buffered records (stored while the server was unreachable) are acknowledged and counted, never shown as current or added to energy |
-| 🌙 | Night aware | Live sensors go unavailable when the inverter stops reporting; totals and the last reading time keep their value |
+| 🌙 | Night aware | Live sensors go unavailable when the inverter stops reporting, or two minutes after the datalogger's last connection closes; totals and the last reading time keep their value. Offline and back online are logged once each |
+| 🔧 | Repairs | A datalogger silent through three hours of daylight (or 24 hours), counted across restarts, raises a Repairs notice, which clears itself when it reconnects |
+| 🔁 | Replaced hardware | A device that is not reporting can be deleted; a second datalogger or inverter is named with its serial |
 | 🔌 | Robust link | Records split or joined across reads, bad CRCs dropped and counted, several connections at once, reconnects, idle sockets closed |
 | 🧭 | Guided setup | Detects Home Assistant's address, shows the exact datalogger settings, waits for the datalogger and shows its serials |
 | ⚙️ | Simple or Advanced | Simple is the port and nothing else. Advanced adds PV current and power, grid voltage, frequency and current, working time, a serial allow-list and the upload interval |
 | 🩺 | Diagnostics | Counts per record type, CRC failures, the last frame of each type and open connections, with every serial removed |
 
 <!-- AUTOGEN:status -->
-**Status: new.** Version 0.1.0.
+**Status: new.** Version 0.2.0.
 <!-- /AUTOGEN:status -->
 ### Supported hardware
 
@@ -175,8 +178,8 @@ sent in the captured traffic.
 
 Only live records update sensors. Buffered records are old values the
 datalogger stored while it was cut off: SunBridge counts them in diagnostics
-and never shows them, so the power never jumps back in time and the lifetime
-total never counts anything twice.
+and never shows them, so the power never jumps back in time and a replay
+never adds to the lifetime total.
 
 [How it works](docs/how-it-works.md) follows a connection step by step.
 
@@ -187,7 +190,9 @@ total never counts anything twice.
 **You need:** a Growatt inverter with a ShineLan-X datalogger, on the same
 local network as Home Assistant 2026.9 or newer, the datalogger's IP address
 and the login printed on its label, and daylight (the datalogger sleeps with
-the inverter). The full checklist is in [docs/setup.md](docs/setup.md#-before-you-start).
+the inverter). Home Assistant needs a fixed address (a DHCP reservation) and
+TCP port 5279 reachable from the datalogger; Docker installs need host
+networking or a published port ([Networking](docs/setup.md#-networking)). The full checklist is in [docs/setup.md](docs/setup.md#-before-you-start).
 
 1. **Install.**
    In HACS: **⋮ → Custom repositories**, add
@@ -199,7 +204,8 @@ the inverter). The full checklist is in [docs/setup.md](docs/setup.md#-before-yo
    Assistant's address filled in, then it waits for the datalogger and shows
    what it found.
 3. **Energy dashboard:** add `sensor.solar_inverter_energy_total` as solar
-   production, after removing any other source for the same inverter.
+   production by hand (SunBridge never changes the Energy settings), after
+   removing any other source for the same inverter.
 
 Step by step, with every screen and a checklist: [docs/setup.md](docs/setup.md).
 Questions about the Growatt app, internet outages or firmware updates:
@@ -211,14 +217,14 @@ Questions about the Growatt app, internet outages or firmware updates:
 
 | Guide | What it covers |
 |---|---|
-| [Setup](docs/setup.md) | Before you start, installing, every setup screen with a screenshot, pointing the datalogger, going back to the cloud |
+| [Setup](docs/setup.md) | Before you start, networking, installing, every setup screen with a screenshot, pointing the datalogger, changing the port, going back to the cloud, removing SunBridge |
 | [Entities](docs/entities.md) | Every sensor, generated from the code |
 | [How it works](docs/how-it-works.md) | The connection step by step, live versus buffered, the energy totals, night |
 | [Troubleshooting](docs/troubleshooting.md) | The datalogger's light, symptoms first, then debug logging |
 | [FAQ](docs/faq.md) | Internet and account, the Growatt app, other inverters and dataloggers, firmware, safety, the Energy dashboard |
 | [Protocol notes](docs/protocol-notes.md) | The wire format, from captured traffic |
 | [Data layout](docs/data-layout.md) | Where each value sits in a record, and the evidence |
-| [Development](docs/development.md) | Checks, screenshots, layout, tests, fixtures, adding a register |
+| [Development](docs/development.md) | Checks, CI, screenshots, layout, tests, fixtures, adding a register, releasing |
 
 ---
 
@@ -226,9 +232,9 @@ Questions about the Growatt app, internet outages or firmware updates:
 
 | Option | Default | Mode | What it does |
 |---|---|---|---|
-| Port | 5279 | both | TCP port to listen on, checked at setup |
+| Port | 5279 | both | TCP port to listen on, checked before it is saved. Change it with **⋮ → Reconfigure**, which goes back to the old port if the new one fails (if that fails too, Repairs names the port to free) |
 | Setup mode | Simple | both | Simple: the core sensors. Advanced: the extra sensors and the two options below |
-| Allowed datalogger serials | any | Advanced | Close connections from any other datalogger before answering them |
+| Allowed datalogger serials | the datalogger found at setup | both, edited in Advanced | Close connections from any other datalogger before answering them. Empty (setup finished before a datalogger connected) accepts any |
 | Datalogger upload interval | 5 min (1 to 10) | Advanced | What the datalogger is set to on its own web page. Live sensors go unavailable after three intervals, never sooner than 15 minutes. SunBridge does not change the datalogger |
 
 ### Simple or Advanced
@@ -237,14 +243,15 @@ Questions about the Growatt app, internet outages or firmware updates:
 | | Simple | Advanced |
 |---|---|---|
 | Sensors | Power, PV voltage, Temperature, Status, Energy today, Energy total, Last reading, Connected | Everything in Simple, plus PV current, PV power, Grid voltage, Grid frequency, Grid current, Working time, and Second temperature (created disabled: unverified) |
-| Dataloggers answered | Any | Only the serials in the allow-list, prefilled with the one setup found (empty accepts any) |
+| Dataloggers answered | Only the serials in the allow-list: the one setup found, edited in Advanced. Empty (setup finished before one connected, or an entry from 0.1.0) answers any, with a Repairs notice, until the entry knows exactly one datalogger: its next start adopts that one | Only the serials in the allow-list, prefilled with the one setup found and editable (empty accepts any) |
 | Upload interval expected | 5 minutes, the datalogger's default | What you enter, 1 to 10 minutes, matching the datalogger |
 | Live sensors go unavailable after | 15 minutes without a live record | 3 upload intervals, never less than 15 minutes |
 | Setup screens | Welcome, port, datalogger steps, waiting, found (or not yet) | The same, then Advanced Settings |
 <!-- /AUTOGEN:modes -->
 
-Switch at any time from **Configure**; going back to Simple removes the
-Advanced sensors.
+Switch at any time from **Configure**. Going back to Simple disables the
+Advanced sensors, keeping their history and settings; Advanced turns back on
+the ones Simple disabled, and a sensor you disabled yourself stays disabled.
 
 ---
 
@@ -272,7 +279,9 @@ Advanced sensors.
 
 The power sensor's id contains `solar` and `inverter` and it is a power
 sensor, with energy today beside it, so dashboards that discover solar by name
-and device class find it.
+and device class find it. The ids above are the first inverter's and
+datalogger's; a second one is named with its serial
+([Entities](docs/entities.md)).
 
 ---
 
@@ -293,8 +302,8 @@ Server IP, Server port, ResolvDomain OFF, and that it was rebooted, then
 <summary><b>Connected stays off</b></summary>
 
 The datalogger is not reaching Home Assistant: check its server IP and port,
-and anything between them. In Advanced mode, a serial missing from the
-allow-list is closed at once.
+and anything between them. A serial missing from the allow-list (in Simple,
+the datalogger found at setup) is closed at once.
 
 </details>
 
@@ -327,13 +336,14 @@ SunBridge/
 ├── tools/
 │   ├── gen_diagram.py         # 🗺️ draws docs/assets/*.svg
 │   ├── gen_docs.py            # 🤖 the generated tables and values in the docs
+│   ├── release_notes.py       # 🏷️ tag, manifest and CHANGELOG agree; the release notes
 │   └── screenshots/           # 📸 make screenshots: a throwaway HA, a fake datalogger, Playwright
 ├── docs/                      # 📚 setup, FAQ, entities, how it works, protocol, data layout
 │   └── assets/                # 🖼️ diagrams, screenshots, the icon's SVG source, the social preview
-├── .github/                   # 🤖 tests, Hassfest and HACS workflows, dependabot
-├── Makefile                   # 🔧 venv, check, test, lint, diagram, hassfest, screenshots
+├── .github/                   # 🤖 workflows (tests, Hassfest, HACS, CodeQL, release), issue forms, dependabot
+├── Makefile                   # 🔧 venv, check, test, lint, typing, diagram, hassfest, screenshots
 ├── hacs.json  pyproject.toml  pytest.ini  requirements_test.txt
-└── CHANGELOG.md  LICENSE  SECURITY.md
+└── CHANGELOG.md  CONTRIBUTING.md  LICENSE  SECURITY.md
 ```
 
 ---
@@ -342,7 +352,7 @@ SunBridge/
 
 ```bash
 make venv     # Home Assistant 2026.9.4 test environment, built with uv
-make check    # ruff, pytest, diagrams and generated docs current
+make check    # ruff, strict mypy, pytest with the 95% branch coverage gate, generated docs current
 make hassfest # Home Assistant's own validation (needs Docker)
 ```
 
@@ -353,17 +363,22 @@ Assistant's history of the same moment. End-to-end tests run a fake
 datalogger over a real localhost socket, through the whole setup and the
 listener.
 
+CI runs the same checks, and the suite again on the oldest supported Home
+Assistant (hacs.json's 2026.9.0) and the newest release.
+
 Tests also pin the promises above: SunBridge sends only the ping echo,
 the acknowledgement and the datalogger's clock; buffered records never touch
-a sensor or the energy totals; and the lifetime total never goes down.
+a sensor or the energy totals; and the lifetime total ignores a reading the
+inverter could not have made until three live readings agree.
 
 ---
 
 ## 📦 Deployment
 
 HACS installs and updates it from this repository's releases. Each release is
-listed in [CHANGELOG.md](CHANGELOG.md); restart Home Assistant after an
-update.
+listed in [CHANGELOG.md](CHANGELOG.md), and its GitHub release carries the
+same notes and a `sunbridge.zip` for a manual install; restart Home
+Assistant after an update. Removing it: [docs/setup.md](docs/setup.md#removing-sunbridge).
 
 ---
 
@@ -376,15 +391,15 @@ Diagnostics carry no serials. See [SECURITY.md](SECURITY.md).
 
 ## 🤝 Contributing
 
-The most useful contribution is a report from other hardware. If you run
-SunBridge with an inverter or datalogger not marked tested above,
-[open an issue](https://github.com/CaputoDavide93/SunBridge/issues) with
-the inverter model, the datalogger model and firmware, and whether the
-readings match the inverter's own display. Attach the integration's
-diagnostics if you can: they carry no serials.
+The most useful contribution is a report from other hardware: the
+[hardware report form](https://github.com/CaputoDavide93/SunBridge/issues/new/choose)
+asks for the inverter and datalogger models, the firmware, and the
+integration's diagnostics (they carry no serials). Bugs and ideas have their
+own forms; security problems go privately, as [SECURITY.md](SECURITY.md)
+says.
 
-Code changes: run `make check` first; [docs/development.md](docs/development.md)
-explains the layout, the fixtures and how to add a register.
+Code changes: [CONTRIBUTING.md](CONTRIBUTING.md) covers the development
+setup, `make check`, and how to share captured traffic safely.
 
 ---
 

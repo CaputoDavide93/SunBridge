@@ -1,0 +1,104 @@
+# SunBridge against Home Assistant's integration quality scale, rule by rule.
+# A custom integration gets no official tier; this records honestly where it
+# stands. Statuses: done, todo, or exempt with the reason.
+rules:
+  # Bronze
+  action-setup:
+    status: exempt
+    comment: The integration registers no actions.
+  appropriate-polling:
+    status: exempt
+    comment: Push only. The datalogger connects and uploads; nothing is polled.
+  brands:
+    status: todo
+    comment: Brand images ship in brand/ but are not in the home-assistant/brands repository.
+  common-modules: done
+  config-flow-test-coverage:
+    status: done
+    comment: Every step, error and abort is tested; branch coverage is gated (pyproject.toml).
+  config-flow: done
+  dependency-transparency:
+    status: exempt
+    comment: No requirements; everything is in this repository.
+  docs-actions:
+    status: exempt
+    comment: The integration registers no actions.
+  docs-conditions:
+    status: exempt
+    comment: The integration provides no conditions.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  entity-event-setup: done
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure:
+    status: done
+    comment: >-
+      The port is bound before it is saved, at setup, at Finish now and at
+      Reconfigure. Finishing before the datalogger connects is deliberate (it
+      is off at night); the waiting step proves the link when it can.
+  test-before-setup: done
+  unique-config-entry: done
+
+  # Silver
+  action-exceptions:
+    status: exempt
+    comment: The integration registers no actions.
+  config-entry-unloading: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates: done
+  reauthentication-flow:
+    status: exempt
+    comment: No credentials; the datalogger connects to Home Assistant.
+  test-coverage:
+    status: done
+    comment: Branch coverage is gated at 95% overall; CI fails below that.
+
+  # Gold
+  devices: done
+  diagnostics: done
+  discovery-update-info:
+    status: exempt
+    comment: The datalogger offers no discovery channel; it is pointed at Home Assistant by hand.
+  discovery:
+    status: exempt
+    comment: The datalogger offers no discovery channel; it is pointed at Home Assistant by hand.
+  docs-data-update: done
+  docs-examples:
+    status: todo
+    comment: No automation examples in the docs yet.
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-triggers:
+    status: exempt
+    comment: The integration provides no triggers.
+  docs-troubleshooting: done
+  docs-use-cases: done
+  dynamic-devices: done
+  entity-category: done
+  entity-device-class: done
+  entity-disabled-by-default: done
+  entity-translations: done
+  exception-translations: done
+  icon-translations: done
+  reconfiguration-flow: done
+  repair-issues: done
+  stale-devices: done
+
+  # Platinum
+  async-dependency:
+    status: exempt
+    comment: No dependencies.
+  inject-websession:
+    status: exempt
+    comment: No HTTP; the integration only listens on TCP.
+  strict-typing:
+    status: done
+    comment: mypy --strict with no overrides, in make check and CI.

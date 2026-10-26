@@ -111,7 +111,14 @@ def registers(payload: bytes) -> dict[int, int]:
 
 
 def record_time(payload: bytes) -> datetime | None:
-    """The record's own time stamp (the datalogger's clock), if it has one."""
+    """The record's own time stamp (the datalogger's clock), if it has one.
+
+    Naive on purpose: the record does not say which zone that clock keeps.
+    SunBridge sets it to UTC, yet the captured datalogger stamped its records
+    an hour ahead of UTC, so it may apply an offset of its own. The value is
+    returned exactly as written, never shifted for DST; a stamp that is not a
+    real date and time (or all zeros, as in live records) is None.
+    """
     raw = payload[TIME_OFFSET:BLOCKS_OFFSET]
     if len(raw) < 6 or not any(raw):
         return None
