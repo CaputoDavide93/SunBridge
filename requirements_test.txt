@@ -1,11 +1,11 @@
 # The development pin: `make venv` and CI's main job run against this Home
 # Assistant release. This plugin pins exactly one HA version per release, and
-# 0.13.367 is homeassistant==2026.9.4. It brings pytest, pytest-asyncio,
+# 0.13.373 is homeassistant==2026.10.2. It brings pytest, pytest-asyncio,
 # pytest-cov and syrupy at the versions that HA expects. CI also runs the
 # suite on the oldest and the newest supported release:
 # .github/ha-minimum/requirements.txt and .github/ha-latest/requirements.txt.
-pytest-homeassistant-custom-component==0.13.367
+pytest-homeassistant-custom-component==0.13.373
 # Pinned like the rest, so a new ruff or mypy release cannot turn a green
 # branch red.
-ruff==0.16.10
+ruff==0.17.2
 mypy==2.4.0

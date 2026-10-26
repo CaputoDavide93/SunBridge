@@ -45,3 +45,11 @@ warn_unreachable = true
 follow_imports = "silent"
 # custom_components/ has no __init__.py: name modules from the repository root.
 explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+# Home Assistant 2026.10 moved BinarySensorDeviceClass into binary_sensor/const.py
+# and re-exports it without an `as` alias, which strict mode does not count as an
+# export. The package import is the one that works on every supported release
+# (2026.9 has no const.py), so let mypy see that module's re-exports.
+module = "homeassistant.components.binary_sensor"
+implicit_reexport = true

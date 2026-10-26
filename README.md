@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/brand/icon.svg" width="96" alt="SunBridge icon: a sun above a house roofline">
+<img src="docs/assets/brand/icon.svg" width="96" alt="SunBridge icon: a sun beside a house, joined by an arc of dots">
 
 # ☀️ SunBridge
 
@@ -331,7 +331,7 @@ SunBridge/
 ├── custom_components/
 │   └── sunbridge/             # 🧩 the integration: protocol, decoder, server, hub, sensors, flows
 │       └── brand/             # 🎨 icons shown in Home Assistant and HACS
-├── tests/                     # 🧪 pytest against Home Assistant 2026.9.4
+├── tests/                     # 🧪 pytest against Home Assistant 2026.10.2
 │   └── fixtures/captured/     # 📼 a real datalogger's traffic (serials replaced) and HA's history
 ├── tools/
 │   ├── gen_diagram.py         # 🗺️ draws docs/assets/*.svg
@@ -351,7 +351,7 @@ SunBridge/
 ## 🧪 Testing
 
 ```bash
-make venv     # Home Assistant 2026.9.4 test environment, built with uv
+make venv     # Home Assistant 2026.10.2 test environment, built with uv
 make check    # ruff, strict mypy, pytest with the 95% branch coverage gate, generated docs current
 make hassfest # Home Assistant's own validation (needs Docker)
 ```

@@ -3,7 +3,7 @@ PYTHON := .venv/bin/python
 
 .PHONY: venv test lint typing diagram check hassfest screenshots release-notes
 
-venv: ## Home Assistant 2026.9.4 test environment, built with uv
+venv: ## Home Assistant 2026.10.2 test environment, built with uv
 	uv venv -q --allow-existing --python 3.14 .venv
 	VIRTUAL_ENV=.venv uv pip install -q -r requirements_test.txt
 

@@ -3,7 +3,7 @@
 ## Checks
 
 ```bash
-make venv       # Home Assistant 2026.9.4 test environment, built with uv
+make venv       # Home Assistant 2026.10.2 test environment, built with uv
 make check      # ruff, mypy, pytest with coverage, diagrams and generated docs current
 make hassfest   # Home Assistant's own validation, in Docker
 ```

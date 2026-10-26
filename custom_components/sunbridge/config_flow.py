@@ -25,7 +25,7 @@ import socket
 from enum import Enum
 from typing import Any
 
-import voluptuous as vol
+import probatio as vol
 from homeassistant.components.network import async_get_source_ip
 from homeassistant.config_entries import (
     ConfigEntry,
