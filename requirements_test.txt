@@ -4,7 +4,7 @@
 # pytest-cov and syrupy at the versions that HA expects. CI also runs the
 # suite on the oldest and the newest supported release:
 # .github/ha-minimum/requirements.txt and .github/ha-latest/requirements.txt.
-pytest-homeassistant-custom-component==0.13.367
+pytest-homeassistant-custom-component==0.13.373
 # Pinned like the rest, so a new ruff or mypy release cannot turn a green
 # branch red.
 ruff==0.16.10
