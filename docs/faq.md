@@ -56,7 +56,7 @@ not read. The full table is in the [README](../README.md#supported-hardware).
 Likely, but unverified. A datalogger should work if its web page has a
 **Server IP** setting and it speaks the same protocol as the ShineLan-X.
 Nobody has tested one yet. If you try it,
-[open an issue](https://github.com/CaputoDavide93/SunBridge/issues) with the
+[open an issue](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/issues) with the
 model and firmware, whether it worked or not.
 
 ### Is it safe for my inverter?

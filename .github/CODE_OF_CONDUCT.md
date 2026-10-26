@@ -23,7 +23,7 @@ this.
 ## Reporting
 
 Report a problem privately to the maintainer through a
-[private report](https://github.com/CaputoDavide93/SunBridge/security/advisories/new)
+[private report](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/security/advisories/new)
 with "Code of conduct" in the title, or with GitHub's **Report content**
 on the post itself. Reports are read in confidence.
 

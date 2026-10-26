@@ -5,8 +5,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Most answers are in the [FAQ](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/faq.md)
-        and [Troubleshooting](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/troubleshooting.md).
+        Most answers are in the [FAQ](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/docs/faq.md)
+        and [Troubleshooting](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/docs/troubleshooting.md).
         Never paste a datalogger or inverter serial, or a packet capture:
         write `DLGEXAMPLE` and `INVEXAMPLE` instead.
   - type: textarea

@@ -89,13 +89,13 @@ changed yet.
 With [HACS](https://hacs.xyz):
 
 1. Open **HACS**, then the **⋮** menu (top right) → **Custom repositories**.
-2. **Repository:** `https://github.com/CaputoDavide93/SunBridge`,
+2. **Repository:** `https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant`,
    **Type:** **Integration**, then **Add**.
 3. Search HACS for **SunBridge**, open it and click **Download**.
 4. Restart Home Assistant (**Settings → System → ⏻ → Restart**).
 
 Without HACS: copy `custom_components/sunbridge/` from the
-[latest release](https://github.com/CaputoDavide93/SunBridge/releases) into
+[latest release](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/releases) into
 Home Assistant's `config/custom_components/`, then restart.
 
 ## 2. Add the integration

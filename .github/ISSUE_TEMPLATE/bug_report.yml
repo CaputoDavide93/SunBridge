@@ -8,7 +8,7 @@ body:
         Thanks for the report. Before you send it, replace every datalogger or
         inverter serial with `DLGEXAMPLE` / `INVEXAMPLE` and every LAN address
         with `192.0.2.10`. Security problems go
-        [privately](https://github.com/CaputoDavide93/SunBridge/security/advisories/new), never here.
+        [privately](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/security/advisories/new), never here.
   - type: textarea
     id: what
     attributes:

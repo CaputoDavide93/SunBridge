@@ -6,7 +6,7 @@ datalogger, so the most valuable thing you can send is evidence from yours.
 ## Reports from other hardware
 
 Use the **Hardware report** form under
-[New issue](https://github.com/CaputoDavide93/SunBridge/issues/new/choose),
+[New issue](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/issues/new/choose),
 whether SunBridge worked or not. It asks for:
 
 - the inverter model, the datalogger model and its firmware (on the
