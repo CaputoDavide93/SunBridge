@@ -10,7 +10,7 @@
 ![Home Assistant](https://img.shields.io/badge/Home_Assistant-2026.9-41BDF5?logo=homeassistant&logoColor=white)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5)](https://hacs.xyz)
 ![License](https://img.shields.io/badge/License-MIT-green)
-[![Tests](https://github.com/CaputoDavide93/SunBridge/actions/workflows/tests.yaml/badge.svg)](https://github.com/CaputoDavide93/SunBridge/actions/workflows/tests.yaml)
+[![Tests](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/actions/workflows/tests.yaml/badge.svg)](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/actions/workflows/tests.yaml)
 
 </div>
 
@@ -51,7 +51,7 @@ while it points at Home Assistant the Growatt app gets no new data. You can
 
 ### Install in 3 steps
 
-1. **Install with HACS:** add `https://github.com/CaputoDavide93/SunBridge`
+1. **Install with HACS:** add `https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant`
    as a custom repository of type **Integration**, download **SunBridge**,
    restart Home Assistant.
 2. **Add the integration:** **Settings → Devices & services → Add integration
@@ -96,7 +96,7 @@ Details and every screen are in [Quick Start](#-quick-start) and
 
 Everything was learned from, and is tested against, the tested pair's
 captured traffic only. Running other hardware?
-[Open an issue](https://github.com/CaputoDavide93/SunBridge/issues) with
+[Open an issue](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/issues) with
 your inverter and datalogger models and firmware, and help verify it. This
 is an independent project, not affiliated with or endorsed by Growatt.
 
@@ -196,7 +196,7 @@ networking or a published port ([Networking](docs/setup.md#-networking)). The fu
 
 1. **Install.**
    In HACS: **⋮ → Custom repositories**, add
-   `https://github.com/CaputoDavide93/SunBridge` as an **Integration**, then
+   `https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant` as an **Integration**, then
    download **SunBridge** and restart Home Assistant.
 2. **Add it:** **Settings → Devices & services → Add integration →
    SunBridge**. The setup walks you through the rest: Simple or Advanced, the
@@ -327,7 +327,7 @@ in its captured traffic, so unverified:
 ## 📁 Repo structure
 
 ```text
-SunBridge/
+SunBridge-Growatt-Home-Assistant/
 ├── custom_components/
 │   └── sunbridge/             # 🧩 the integration: protocol, decoder, server, hub, sensors, flows
 │       └── brand/             # 🎨 icons shown in Home Assistant and HACS
@@ -392,7 +392,7 @@ Diagnostics carry no serials. See [SECURITY.md](SECURITY.md).
 ## 🤝 Contributing
 
 The most useful contribution is a report from other hardware: the
-[hardware report form](https://github.com/CaputoDavide93/SunBridge/issues/new/choose)
+[hardware report form](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/issues/new/choose)
 asks for the inverter and datalogger models, the firmware, and the
 integration's diagnostics (they carry no serials). Bugs and ideas have their
 own forms; security problems go privately, as [SECURITY.md](SECURITY.md)

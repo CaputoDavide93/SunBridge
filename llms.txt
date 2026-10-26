@@ -16,15 +16,15 @@ Key facts:
 
 ## Docs
 
-- [README](https://github.com/CaputoDavide93/SunBridge/blob/main/README.md): features, comparison with cloud integrations, RS485/Modbus wiring and MQTT proxy containers, supported hardware, install
-- [Setup](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/setup.md): installing with HACS, every setup screen, pointing the datalogger at Home Assistant, going back to the cloud
-- [FAQ](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/faq.md): internet, account, hardware, firmware updates, inverter safety, Energy dashboard
-- [Entities](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/entities.md): every sensor and its entity id
-- [Troubleshooting](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/troubleshooting.md): symptoms and fixes
-- [How it works](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/how-it-works.md): the connection, live and buffered records, energy totals, night
+- [README](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/README.md): features, comparison with cloud integrations, RS485/Modbus wiring and MQTT proxy containers, supported hardware, install
+- [Setup](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/docs/setup.md): installing with HACS, every setup screen, pointing the datalogger at Home Assistant, going back to the cloud
+- [FAQ](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/docs/faq.md): internet, account, hardware, firmware updates, inverter safety, Energy dashboard
+- [Entities](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/docs/entities.md): every sensor and its entity id
+- [Troubleshooting](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/docs/troubleshooting.md): symptoms and fixes
+- [How it works](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/docs/how-it-works.md): the connection, live and buffered records, energy totals, night
 
 ## Optional
 
-- [Protocol notes](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/protocol-notes.md): the datalogger's wire format, from captured traffic
-- [Data layout](https://github.com/CaputoDavide93/SunBridge/blob/main/docs/data-layout.md): where each value sits in a record, and the evidence
-- [Changelog](https://github.com/CaputoDavide93/SunBridge/blob/main/CHANGELOG.md)
+- [Protocol notes](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/docs/protocol-notes.md): the datalogger's wire format, from captured traffic
+- [Data layout](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/docs/data-layout.md): where each value sits in a record, and the evidence
+- [Changelog](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/CHANGELOG.md)

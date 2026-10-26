@@ -5,6 +5,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The repository is renamed to `SunBridge-Growatt-Home-Assistant`. GitHub
+  redirects the old URL, and HACS follows the rename. The domain `sunbridge`,
+  the entity ids and the statistics are unchanged.
+
 ## [0.2.0] - 2026-10-26
 
 ### Added

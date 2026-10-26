@@ -3,14 +3,14 @@
 ## Reporting a vulnerability
 
 Please report vulnerabilities privately via
-[GitHub Security Advisories](https://github.com/CaputoDavide93/SunBridge/security/advisories/new)
+[GitHub Security Advisories](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/security/advisories/new)
 rather than opening a public issue. You should get a response within a week.
 
 Include the SunBridge version, the Home Assistant version, and the steps or
 bytes that show the problem. Replace datalogger and inverter serials with
 `DLGEXAMPLE` and `INVEXAMPLE`, and LAN addresses with documentation ones
 (192.0.2.x), before you send anything. Bugs that are not about security go
-to the [issue forms](https://github.com/CaputoDavide93/SunBridge/issues/new/choose).
+to the [issue forms](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/issues/new/choose).
 
 ## Data handling
 

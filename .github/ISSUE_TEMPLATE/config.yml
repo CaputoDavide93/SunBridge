@@ -4,11 +4,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: 🔒 Security problem
-    url: https://github.com/CaputoDavide93/SunBridge/security/advisories/new
+    url: https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/security/advisories/new
     about: Report a vulnerability privately, never in a public issue.
   - name: 🚀 Setup guide
-    url: https://github.com/CaputoDavide93/SunBridge/blob/main/docs/setup.md
+    url: https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/docs/setup.md
     about: Every setup screen, networking, the datalogger's settings, removal.
   - name: 🛠️ Troubleshooting and FAQ
-    url: https://github.com/CaputoDavide93/SunBridge/blob/main/docs/troubleshooting.md
+    url: https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/docs/troubleshooting.md
     about: The datalogger's light and the common symptoms, by cause.

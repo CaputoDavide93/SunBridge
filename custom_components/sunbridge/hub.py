@@ -85,9 +85,9 @@ STORAGE_VERSION = 1
 SAVE_DELAY_SECONDS = 10
 SAVE_CONNECTED_EVERY = timedelta(minutes=10)
 TROUBLESHOOTING_URL = (
-    "https://github.com/CaputoDavide93/SunBridge/blob/main/docs/troubleshooting.md"
+    "https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/docs/troubleshooting.md"
 )
-SECURITY_URL = "https://github.com/CaputoDavide93/SunBridge/blob/main/SECURITY.md"
+SECURITY_URL = "https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/blob/main/SECURITY.md"
 
 
 def entry_settings(entry: ConfigEntry) -> dict[str, Any]:
