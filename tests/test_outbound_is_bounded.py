@@ -1,6 +1,6 @@
 """SunBridge only ever sends three things, and never a command to the inverter.
 
-Owner's rule (25 Oct 2026): "make sure the integration is not sending strange
+Owner's rule: "make sure the integration is not sending strange
 signals to the inverter". Everything SunBridge puts on the wire goes through
 `_send` in server.py, and every frame it builds goes through `build_frame` in
 protocol.py. This pins both ends so a fourth kind of message cannot be added

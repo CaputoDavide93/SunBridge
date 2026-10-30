@@ -5,6 +5,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `docs/compatibility.md`: which hardware is verified, which is reported or
+  unknown, and how to submit a hardware report.
+- A README comparison against the built-in Growatt integration, MQTT proxy
+  containers and RS485/Modbus, and marked places for a setup GIF and an Energy dashboard
+  screenshot.
+- A draft welcome post for GitHub Discussions (`docs/discussions-welcome.md`),
+  not yet posted.
+
+### Fixed
+
+- `quality_scale.yaml` listed `brands` as todo; the integration ships its own
+  `brand/` folder, which Home Assistant 2026.3 and later serves, so it is done.
+
 ### Changed
 
 - The repository is renamed to `SunBridge-Growatt-Home-Assistant`. GitHub

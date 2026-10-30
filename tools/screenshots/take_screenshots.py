@@ -345,6 +345,11 @@ async def run(args: argparse.Namespace) -> None:
             await context.add_init_script(
                 f"localStorage.setItem('hassTokens', {json.dumps(json.dumps(tokens))});"
             )
+            if args.gif:
+                await context.close()
+                await record_setup(browser, tokens, base, datalogger)
+                await browser.close()
+                return
             page = await context.new_page()
             camera = Camera(page, only)
             await shoot_setup(page, camera, base, datalogger)
@@ -522,9 +527,74 @@ async def shoot_reconfigure(page: Page, camera: Camera, base: str) -> None:
     await page.keyboard.press("Escape")
 
 
+async def record_setup(
+    browser, tokens: dict, base: str, datalogger: FakeDatalogger
+) -> None:
+    """Film the Simple-mode setup and write docs/assets/screenshots/setup-demo.gif."""
+    video = Path(tempfile.mkdtemp(prefix="sunbridge-video-"))
+    context = await browser.new_context(
+        viewport={"width": 1280, "height": 900},
+        locale="en-GB",
+        timezone_id="UTC",
+        color_scheme="light",
+        record_video_dir=str(video),
+        record_video_size={"width": 1280, "height": 900},
+    )
+    await context.add_init_script(
+        f"localStorage.setItem('hassTokens', {json.dumps(json.dumps(tokens))});"
+    )
+    page = await context.new_page()
+    await page.goto(f"{base}/config/integrations/dashboard/add?domain=sunbridge")
+    await page.get_by_text("Do you want to set up SunBridge?").wait_for(timeout=60000)
+    await page.get_by_role("button", name="OK", exact=True).click()
+    await screen(page, "Welcome to SunBridge")
+    await page.wait_for_timeout(2500)
+    await press(page, "Submit", "Next")
+    await screen(page, "Choose the Port")
+    await page.wait_for_timeout(2500)
+    await page.get_by_role("spinbutton", name="Port").fill(str(SUNBRIDGE_PORT))
+    await press(page, "Submit", "Next")
+    await screen(page, "Point Your Datalogger Here")
+    await page.wait_for_timeout(5000)
+    await press(page, "Next", "Submit")
+    await page.get_by_text("Waiting for your datalogger").first.wait_for(timeout=60000)
+    await page.wait_for_timeout(2500)
+    datalogger.start()
+    await screen(page, "Datalogger Found")
+    await page.wait_for_timeout(3000)
+    await press(page, "Submit", "Next")
+    await page.get_by_text("Name and assign").wait_for(timeout=60000)
+    await page.wait_for_timeout(3000)
+    await context.close()
+    webm = next(video.glob("*.webm"))
+    target = OUT / "setup-demo.gif"
+    palette = video / "palette.png"
+    scale = "fps=8,scale=800:-1:flags=lanczos"
+    ffmpeg = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(webm)]
+    subprocess.run(
+        [*ffmpeg, "-vf", f"{scale},palettegen", str(palette)], check=True
+    )
+    subprocess.run(
+        [
+            *ffmpeg,
+            "-i",
+            str(palette),
+            "-lavfi",
+            f"{scale}[x];[x][1:v]paletteuse",
+            str(target),
+        ],
+        check=True,
+    )
+    shutil.rmtree(video, ignore_errors=True)
+    print(f"  {target.relative_to(ROOT)}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--keep", action="store_true", help="keep the temporary config")
+    parser.add_argument(
+        "--gif", action="store_true", help="film the setup into setup-demo.gif only"
+    )
     parser.add_argument("--only", help="comma-separated screen names to (re)take")
     asyncio.run(run(parser.parse_args()))
 

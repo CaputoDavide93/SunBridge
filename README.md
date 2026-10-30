@@ -36,14 +36,19 @@ wiring to the inverter, or adding an MQTT proxy container and a broker.
 SunBridge needs none of that. The datalogger already uploads over your
 network; SunBridge receives it inside Home Assistant.
 
-| | SunBridge | Cloud integrations | RS485/Modbus wiring | MQTT proxy containers |
+| | SunBridge | Built-in Growatt integration (cloud) | MQTT proxy containers | RS485/Modbus wiring |
 |---|---|---|---|---|
 | Growatt account | Not needed | Needed | Not needed | Not needed |
 | Internet while running | Not needed | Needed | Not needed | Not needed |
-| Extra hardware | None | None | An RS485 adapter and a cable to the inverter | None |
-| Extra software | None: installs through HACS | None | A Modbus reader | A proxy container and an MQTT broker |
-| How fresh the data is | Every upload, 5 minutes by default | After the cloud has it and the integration polls it | As often as you poll | Every upload |
-| Setup | Guided, in Home Assistant's UI | In Home Assistant's UI | Wiring, then configuration | Container, broker and topic configuration |
+| Extra hardware | None | None | None | An RS485 adapter and a cable to the inverter |
+| Extra software | None: installs through HACS | None | A proxy container and an MQTT broker | A Modbus reader |
+| How fresh the data is | Every upload, 5 minutes by default | After the cloud has it and the integration polls it | Every upload | As often as you poll |
+| Setup | Guided, in Home Assistant's UI | In Home Assistant's UI | Container, broker and topic configuration | Wiring, then configuration |
+| Hardware verified | One pair (see [compatibility](docs/compatibility.md)) | Whatever Growatt's cloud supports | Not assessed here | Depends on the inverter |
+| Writes to the inverter | No | No | Not assessed here | Possible, depending on your reader |
+
+This is a comparison of approaches as we understand them, not a review of
+other projects: check their own documentation before choosing.
 
 The one trade-off: the datalogger uploads to one server, so
 while it points at Home Assistant the Growatt app gets no new data. You can
@@ -95,9 +100,10 @@ Details and every screen are in [Quick Start](#-quick-start) and
 | Batteries, meters, three-phase inverters | ❌ Not read (never tested) |
 
 Everything was learned from, and is tested against, the tested pair's
-captured traffic only. Running other hardware?
-[Open an issue](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/issues) with
-your inverter and datalogger models and firmware, and help verify it. This
+captured traffic only. Running other hardware? Send a
+[hardware report](https://github.com/CaputoDavide93/SunBridge-Growatt-Home-Assistant/issues/new?template=hardware_report.yml)
+with your inverter and datalogger models and firmware, and help verify it;
+[docs/compatibility.md](docs/compatibility.md) says what counts as evidence. This
 is an independent project, not affiliated with or endorsed by Growatt.
 
 **What it does not do:** relay data to Growatt's cloud (while the datalogger
@@ -108,6 +114,19 @@ write to the inverter, or read batteries, meters or three-phase inverters (never
 ---
 
 ## 📸 Screenshots
+
+<p align="center">
+  <img src="docs/assets/screenshots/setup-demo.gif" width="100%" alt="The guided setup in Home Assistant: Welcome, Choose the Port, Point Your Datalogger Here with its five steps, Waiting for your datalogger, Datalogger Found, then Name and assign.">
+</p>
+
+<p align="center"><b>The whole setup in 25 seconds</b>, filmed in a real Home Assistant with demo data</p>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/energy-solar-dark.png">
+  <img src="docs/assets/screenshots/energy-solar-light.png" width="100%" alt="Home Assistant's Configure solar panels dialog with Energy total from Solar Inverter as solar production energy and Power as solar production power.">
+</picture>
+
+**Energy dashboard**: add SunBridge's Energy total as solar production
 
 Taken from a real Home Assistant with demo data (`make screenshots`); every
 setup screen is in [docs/setup.md](docs/setup.md).

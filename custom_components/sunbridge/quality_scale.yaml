@@ -10,8 +10,11 @@ rules:
     status: exempt
     comment: Push only. The datalogger connects and uploads; nothing is polled.
   brands:
-    status: todo
-    comment: Brand images ship in brand/ but are not in the home-assistant/brands repository.
+    status: done
+    comment: >-
+      The integration ships its own brand/ folder (icon.png 256x256, icon@2x.png
+      512x512, dark_icon.png and dark_icon@2x.png), which Home Assistant 2026.3
+      and later serves itself. No entry in home-assistant/brands is needed.
   common-modules: done
   config-flow-test-coverage:
     status: done
